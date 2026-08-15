@@ -12,6 +12,8 @@ const tableUpdateSchema = z.object({
   zoneId: z.string().uuid().nullable().optional(),
   shape: z.enum(['square', 'round']).optional(),
   status: tableStatus.optional(),
+  posX: z.number().min(0).max(100).optional(),
+  posY: z.number().min(0).max(100).optional(),
 }).refine((update) => Object.keys(update).length > 1, 'Cần có dữ liệu để cập nhật.')
 const createSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('createZone'), name: z.string().trim().min(1).max(60) }),
@@ -48,6 +50,8 @@ async function updateTables({ request }: { request: Request }) {
     if (table.zoneId !== undefined) { updates.push('zone_id = ?'); values.push(table.zoneId) }
     if (table.shape !== undefined) { updates.push('shape = ?'); values.push(table.shape) }
     if (table.status !== undefined) { updates.push('status = ?'); values.push(table.status) }
+    if (table.posX !== undefined) { updates.push('pos_x = ?'); values.push(table.posX) }
+    if (table.posY !== undefined) { updates.push('pos_y = ?'); values.push(table.posY) }
     return env.DB.prepare(`UPDATE "tables" SET ${updates.join(', ')} WHERE id = ?`).bind(...values, table.id)
   })
   await env.DB.batch(statements)
@@ -67,7 +71,7 @@ async function createFloorPlanItem({ request }: { request: Request }) {
       await writeAudit(actor.id, 'zone', id, 'created', input.data)
       return Response.json({ id, type: 'zone' }, { status: 201 })
     }
-    await env.DB.prepare('INSERT INTO "tables" (id, zone_id, name, capacity, shape, status) VALUES (?, ?, ?, ?, ?, ?)').bind(id, input.data.zoneId, input.data.name, input.data.capacity, input.data.shape, 'trong').run()
+    await env.DB.prepare('INSERT INTO "tables" (id, zone_id, name, capacity, pos_x, pos_y, shape, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, input.data.zoneId, input.data.name, input.data.capacity, 50, 50, input.data.shape, 'trong').run()
     await writeAudit(actor.id, 'table', id, 'created', input.data)
     return Response.json({ id, type: 'table' }, { status: 201 })
   } catch (error) {

@@ -32,10 +32,10 @@ skills/
 
 ## Bàn và sơ đồ vận hành
 
-- `zones` và `tables` lưu dữ liệu bàn. `pos_x`/`pos_y` là phần trăm canvas, được giữ sẵn cho giai đoạn sơ đồ tự do; MVP hiển thị CSS grid theo zone.
-- `/admin` là editor cấu hình zone/bàn và trạng thái thủ công. `/pos` chỉ là view vận hành: nhân viên tap vào tile bàn để mở đơn.
+- `zones` và `tables` lưu dữ liệu bàn. `pos_x`/`pos_y` là phần trăm canvas và là nguồn dữ liệu duy nhất cho sơ đồ tự do.
+- `/admin` là editor canvas có lưới 5%, pointer drag/drop và keyboard nudge; vị trí tự lưu khi thả. `/pos` render cùng canvas ở chế độ chỉ đọc, và cho phép mỗi thiết bị chọn view `Sơ đồ` hoặc `Lưới`.
 - `dat_truoc` và `can_don` do quản lý đặt thủ công, tạm ghi đè trạng thái tự động. Khi không có override, `trong`/`dang_phuc_vu` theo lifecycle đơn.
-- Giai đoạn sau mới bổ sung pointer drag trên container `position: relative` và ảnh mặt bằng riêng tư trong R2; không cần thêm thư viện DnD.
+- Không thêm thư viện DnD: drag dùng Pointer Events và Pointer Capture. Ảnh mặt bằng riêng tư trong R2 là nâng cấp sau; canvas hiện dùng nền lưới.
 
 ## Phạm vi MVP và nguyên tắc vận hành
 

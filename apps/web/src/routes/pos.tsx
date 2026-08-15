@@ -3,13 +3,14 @@ import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useState } from 'react'
 import { AppHeader } from '../components/AppHeader'
+import { FloorCanvas, type FloorTableStatus } from '../components/FloorCanvas'
 import { deviceId, enqueueCheckout, pendingCheckouts, syncOutbox } from '../client/outbox'
 import { readSession } from '../server/session'
 
 type MenuItem = { id: string; name: string; detail: string; price: number; category: 'Cà phê' | 'Trà' | 'Đá xay' }
 type OrderItem = MenuItem & { quantity: number }
-type TableStatus = 'trong' | 'dang_phuc_vu' | 'dat_truoc' | 'can_don'
-type OperationalTable = { id: string; zoneId: string | null; name: string; capacity: number; shape: 'square' | 'round'; status: TableStatus }
+type TableStatus = FloorTableStatus
+type OperationalTable = { id: string; zoneId: string | null; name: string; capacity: number; shape: 'square' | 'round'; status: TableStatus; posX: number; posY: number }
 type FloorPlan = { zones: { id: string; name: string }[]; tables: OperationalTable[] }
 
 const menu: MenuItem[] = [
@@ -43,6 +44,8 @@ function Pos() {
   const [orderContext, setOrderContext] = useState<'counter' | 'takeaway' | 'table'>('counter')
   const [selectedTable, setSelectedTable] = useState<OperationalTable | null>(null)
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null)
+  const [layoutView, setLayoutView] = useState<'floor' | 'grid'>('floor')
+  const [layoutViewRestored, setLayoutViewRestored] = useState(false)
   const floorPlan = useQuery({
     queryKey: ['floor-plan'],
     queryFn: async (): Promise<FloorPlan> => {
@@ -63,6 +66,14 @@ function Pos() {
     window.addEventListener('offline', refresh)
     return () => { window.removeEventListener('online', refresh); window.removeEventListener('offline', refresh) }
   }, [])
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem('tomny.pos.table-view')
+    if (saved === 'floor' || saved === 'grid') setLayoutView(saved)
+    setLayoutViewRestored(true)
+  }, [])
+
+  useEffect(() => { if (layoutViewRestored) window.localStorage.setItem('tomny.pos.table-view', layoutView) }, [layoutView, layoutViewRestored])
 
   function addItem(item: MenuItem) {
     setItems((current) => {
@@ -126,7 +137,8 @@ function Pos() {
               <div className="zone-tabs" aria-label="Khu vực bàn">
                 {floorPlan.data.zones.map((zone) => <button key={zone.id} className={selectedZone === zone.id ? 'zone-tab is-selected' : 'zone-tab'} onClick={() => setSelectedZoneId(zone.id)}>{zone.name}</button>)}
               </div>
-              {tablesInZone.length ? <div className="table-grid" aria-label="Các bàn trong khu vực">
+              <div className="layout-view-controls" role="group" aria-label="Kiểu hiển thị bàn"><button className={layoutView === 'floor' ? 'layout-view-button is-active' : 'layout-view-button'} onClick={() => setLayoutView('floor')}>Sơ đồ</button><button className={layoutView === 'grid' ? 'layout-view-button is-active' : 'layout-view-button'} onClick={() => setLayoutView('grid')}>Lưới</button></div>
+              {tablesInZone.length && layoutView === 'floor' ? <FloorCanvas tables={tablesInZone} selectedTableId={selectedTable?.id} disableReserved label="Sơ đồ bàn trong khu vực" onSelect={(table) => { const selected = tablesInZone.find((item) => item.id === table.id); if (selected) { setSelectedTable(selected); setOrderContext('table') } }} /> : tablesInZone.length ? <div className="table-grid" aria-label="Các bàn trong khu vực">
                 {tablesInZone.map((table) => <button key={table.id} disabled={table.status === 'dat_truoc'} className={`table-tile is-${table.status} ${selectedTable?.id === table.id ? 'is-selected' : ''} ${table.shape === 'round' ? 'is-round' : ''}`} onClick={() => { setSelectedTable(table); setOrderContext('table') }}>
                   <strong>{table.name}</strong><span>{table.capacity} chỗ</span><em>{tableStatusLabel(table.status)}</em>
                 </button>)}
