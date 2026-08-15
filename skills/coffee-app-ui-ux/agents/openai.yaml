@@ -1,0 +1,4 @@
+interface:
+  display_name: "Coffee App UI/UX"
+  short_description: "UI system for internal coffee operations"
+  default_prompt: "Use $coffee-app-ui-ux to build a consistent UI for the coffee operations app."

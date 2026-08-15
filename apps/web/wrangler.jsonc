@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "tomny-coffee",
+  "compatibility_date": "2026-08-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "@tanstack/react-start/server-entry",
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  "upload_source_maps": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "tomny-coffee",
+      "migrations_dir": "./drizzle"
+    }
+  ],
+  "r2_buckets": [{ "binding": "MENU_IMAGES", "bucket_name": "tomny-coffee-menu-images" }],
+  "env": {
+    "staging": {
+      "name": "tomny-coffee-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "tomny-coffee-staging",
+          "migrations_dir": "./drizzle"
+        }
+      ],
+      "r2_buckets": [{ "binding": "MENU_IMAGES", "bucket_name": "tomny-coffee-staging-menu-images" }]
+    }
+  }
+}
