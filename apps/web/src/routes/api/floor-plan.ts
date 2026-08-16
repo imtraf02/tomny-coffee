@@ -5,77 +5,114 @@ import { getCurrentUser, requirePermission } from '../../server/auth'
 import { writeAudit } from '../../server/audit'
 
 const tableStatus = z.enum(['trong', 'dang_phuc_vu', 'dat_truoc', 'can_don'])
+const entityId = z.string().trim().min(1).max(120)
 const tableUpdateSchema = z.object({
-  id: z.string().uuid(),
+  id: entityId,
   name: z.string().trim().min(1).max(40).optional(),
-  capacity: z.number().int().min(1).max(30).optional(),
-  zoneId: z.string().uuid().nullable().optional(),
+  zoneId: entityId.nullable().optional(),
   shape: z.enum(['square', 'round']).optional(),
   status: tableStatus.optional(),
-  posX: z.number().min(0).max(100).optional(),
-  posY: z.number().min(0).max(100).optional(),
+  statusOverride: z.enum(['dat_truoc', 'can_don']).nullable().optional(),
+  sortOrder: z.number().int().min(0).max(999).optional(),
+  note: z.string().trim().max(300).optional(),
 }).refine((update) => Object.keys(update).length > 1, 'Cần có dữ liệu để cập nhật.')
+const zoneUpdateSchema = z.object({ id: entityId, name: z.string().trim().min(1).max(60).optional(), sortOrder: z.number().int().min(0).max(999).optional() }).refine((update) => Object.keys(update).length > 1, 'Cần có dữ liệu để cập nhật.')
+const updateSchema = z.object({ tables: z.array(tableUpdateSchema).max(100).default([]), zones: z.array(zoneUpdateSchema).max(50).default([]) }).refine((input) => input.tables.length + input.zones.length > 0, 'Cần có dữ liệu để cập nhật.')
 const createSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('createZone'), name: z.string().trim().min(1).max(60) }),
-  z.object({ action: z.literal('createTable'), zoneId: z.string().uuid(), name: z.string().trim().min(1).max(40), capacity: z.number().int().min(1).max(30).default(4), shape: z.enum(['square', 'round']).default('square') }),
+  z.object({ action: z.literal('createTable'), zoneId: entityId, name: z.string().trim().min(1).max(40), shape: z.enum(['square', 'round']).default('square'), note: z.string().trim().max(300).default('') }),
+  z.object({ action: z.literal('archiveZone'), id: entityId }),
+  z.object({ action: z.literal('archiveTable'), id: entityId }),
 ])
 
-export const Route = createFileRoute('/api/floor-plan')({ server: { handlers: { GET: listFloorPlan, POST: createFloorPlanItem, PUT: updateTables } } })
+export const Route = createFileRoute('/api/floor-plan')({ server: { handlers: { GET: listTables, POST: mutateTables, PUT: updateTables } } })
 
-async function listFloorPlan({ request }: { request: Request }) {
+async function listTables({ request }: { request: Request }) {
   requirePermission(await getCurrentUser(request), 'floor_plan.read')
   const [zones, tables] = await Promise.all([
-    env.DB.prepare('SELECT id, name FROM zones ORDER BY name').all(),
-    env.DB.prepare(`SELECT t.id, t.zone_id AS zoneId, t.name, t.capacity, t.pos_x AS posX, t.pos_y AS posY, t.shape, t.status AS storedStatus,
+    env.DB.prepare('SELECT id, name, sort_order AS sortOrder FROM zones WHERE active = 1 ORDER BY sort_order, name').all(),
+    env.DB.prepare(`SELECT t.id, t.zone_id AS zoneId, z.name AS zoneName, t.name, t.shape, t.note, t.sort_order AS sortOrder, t.status AS storedStatus,
       CASE
-        WHEN t.status IN ('dat_truoc', 'can_don') THEN t.status
-        WHEN EXISTS (SELECT 1 FROM orders o WHERE o.table_id = t.id AND o.status IN ('draft', 'sync_pending')) THEN 'dang_phuc_vu'
+        WHEN t.status_override IN ('dat_truoc', 'can_don') THEN t.status_override
+        WHEN EXISTS (SELECT 1 FROM orders o JOIN order_lines l ON l.order_id = o.id WHERE o.table_id = t.id AND o.status = 'draft' AND l.line_status = 'active') THEN 'dang_phuc_vu'
         ELSE 'trong'
       END AS status
-      FROM "tables" t ORDER BY t.name`).all(),
+      FROM "tables" t LEFT JOIN zones z ON z.id = t.zone_id
+      WHERE t.active = 1 AND (t.zone_id IS NULL OR z.active = 1)
+      ORDER BY COALESCE(z.sort_order, 999), t.sort_order, t.name`).all(),
   ])
   return Response.json({ zones: zones.results, tables: tables.results })
 }
 
 async function updateTables({ request }: { request: Request }) {
   const actor = requirePermission(await getCurrentUser(request), 'floor_plan.manage')
-  const input = z.object({ tables: z.array(tableUpdateSchema).min(1).max(100) }).safeParse(await request.json().catch(() => null))
+  const input = updateSchema.safeParse(await request.json().catch(() => null))
   if (!input.success) return Response.json({ message: 'Dữ liệu bàn không hợp lệ.' }, { status: 400 })
-
-  const statements = input.data.tables.map((table) => {
-    const updates: string[] = []
-    const values: unknown[] = []
-    if (table.name !== undefined) { updates.push('name = ?'); values.push(table.name) }
-    if (table.capacity !== undefined) { updates.push('capacity = ?'); values.push(table.capacity) }
-    if (table.zoneId !== undefined) { updates.push('zone_id = ?'); values.push(table.zoneId) }
-    if (table.shape !== undefined) { updates.push('shape = ?'); values.push(table.shape) }
-    if (table.status !== undefined) { updates.push('status = ?'); values.push(table.status) }
-    if (table.posX !== undefined) { updates.push('pos_x = ?'); values.push(table.posX) }
-    if (table.posY !== undefined) { updates.push('pos_y = ?'); values.push(table.posY) }
-    return env.DB.prepare(`UPDATE "tables" SET ${updates.join(', ')} WHERE id = ?`).bind(...values, table.id)
-  })
+  const now = Date.now()
+  const statements = [
+    ...input.data.zones.map((zone) => {
+      const updates: string[] = []
+      const values: unknown[] = []
+      if (zone.name !== undefined) { updates.push('name = ?'); values.push(zone.name) }
+      if (zone.sortOrder !== undefined) { updates.push('sort_order = ?'); values.push(zone.sortOrder) }
+      return env.DB.prepare(`UPDATE zones SET ${updates.join(', ')} WHERE id = ? AND active = 1`).bind(...values, zone.id)
+    }),
+    ...input.data.tables.map((table) => {
+      const updates: string[] = []
+      const values: unknown[] = []
+      if (table.name !== undefined) { updates.push('name = ?'); values.push(table.name) }
+      if (table.zoneId !== undefined) { updates.push('zone_id = ?'); values.push(table.zoneId) }
+      if (table.shape !== undefined) { updates.push('shape = ?'); values.push(table.shape) }
+      if (table.note !== undefined) { updates.push('note = ?'); values.push(table.note) }
+      if (table.status !== undefined) { updates.push('status_override = ?'); values.push(table.status === 'dat_truoc' || table.status === 'can_don' ? table.status : null) }
+      if (table.statusOverride !== undefined && table.status === undefined) { updates.push('status_override = ?'); values.push(table.statusOverride) }
+      if (table.sortOrder !== undefined) { updates.push('sort_order = ?'); values.push(table.sortOrder) }
+      updates.push('updated_at = ?'); values.push(now)
+      return env.DB.prepare(`UPDATE "tables" SET ${updates.join(', ')} WHERE id = ? AND active = 1`).bind(...values, table.id)
+    }),
+  ]
   await env.DB.batch(statements)
   const revisionId = crypto.randomUUID()
-  await writeAudit(actor.id, 'floor_plan', revisionId, 'tables_updated', input.data)
+  await writeAudit(env.DB, actor.id, 'tables', revisionId, 'updated', input.data)
   return Response.json({ ok: true, revisionId })
 }
 
-async function createFloorPlanItem({ request }: { request: Request }) {
+async function mutateTables({ request }: { request: Request }) {
   const actor = requirePermission(await getCurrentUser(request), 'floor_plan.manage')
   const input = createSchema.safeParse(await request.json().catch(() => null))
-  if (!input.success) return Response.json({ message: 'Dữ liệu tạo zone/bàn không hợp lệ.' }, { status: 400 })
+  if (!input.success) return Response.json({ message: 'Dữ liệu bàn/khu vực không hợp lệ.' }, { status: 400 })
+
+  if (input.data.action === 'archiveZone') {
+    const activeTable = await env.DB.prepare('SELECT id FROM "tables" WHERE zone_id = ? AND active = 1 LIMIT 1').bind(input.data.id).first()
+    if (activeTable) return Response.json({ message: 'Chuyển hoặc xóa các bàn trong khu vực trước khi xóa.' }, { status: 409 })
+    await env.DB.prepare('UPDATE zones SET active = 0 WHERE id = ?').bind(input.data.id).run()
+    await writeAudit(env.DB, actor.id, 'zone', input.data.id, 'archived', input.data)
+    return Response.json({ ok: true })
+  }
+
+  if (input.data.action === 'archiveTable') {
+    const openOrder = await env.DB.prepare("SELECT 1 FROM orders o JOIN order_lines l ON l.order_id = o.id WHERE o.table_id = ? AND o.status = 'draft' AND l.line_status = 'active' LIMIT 1").bind(input.data.id).first()
+    if (openOrder) return Response.json({ message: 'Không thể xóa bàn đang có đơn mở.' }, { status: 409 })
+    await env.DB.prepare('UPDATE "tables" SET active = 0, updated_at = ? WHERE id = ?').bind(Date.now(), input.data.id).run()
+    await writeAudit(env.DB, actor.id, 'table', input.data.id, 'archived', input.data)
+    return Response.json({ ok: true })
+  }
+
   const id = crypto.randomUUID()
   try {
     if (input.data.action === 'createZone') {
-      await env.DB.prepare('INSERT INTO zones (id, name) VALUES (?, ?)').bind(id, input.data.name).run()
-      await writeAudit(actor.id, 'zone', id, 'created', input.data)
+      await env.DB.prepare('INSERT INTO zones (id, name, active, sort_order) VALUES (?, ?, 1, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM zones))').bind(id, input.data.name).run()
+      await writeAudit(env.DB, actor.id, 'zone', id, 'created', input.data)
       return Response.json({ id, type: 'zone' }, { status: 201 })
     }
-    await env.DB.prepare('INSERT INTO "tables" (id, zone_id, name, capacity, pos_x, pos_y, shape, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').bind(id, input.data.zoneId, input.data.name, input.data.capacity, 50, 50, input.data.shape, 'trong').run()
-    await writeAudit(actor.id, 'table', id, 'created', input.data)
+    const zone = await env.DB.prepare('SELECT id FROM zones WHERE id = ? AND active = 1').bind(input.data.zoneId).first()
+    if (!zone) return Response.json({ message: 'Khu vực đã chọn không tồn tại hoặc đã bị xóa.' }, { status: 400 })
+    const now = Date.now()
+    await env.DB.prepare('INSERT INTO "tables" (id, zone_id, name, pos_x, pos_y, shape, status, active, sort_order, status_override, note, created_at, updated_at) VALUES (?, ?, ?, 0, 0, ?, ?, 1, (SELECT COALESCE(MAX(sort_order), -1) + 1 FROM "tables" WHERE zone_id = ?), NULL, ?, ?, ?)').bind(id, input.data.zoneId, input.data.name, input.data.shape, 'trong', input.data.zoneId, input.data.note, now, now).run()
+    await writeAudit(env.DB, actor.id, 'table', id, 'created', input.data)
     return Response.json({ id, type: 'table' }, { status: 201 })
   } catch (error) {
-    const message = error instanceof Error && error.message.includes('UNIQUE') ? 'Tên zone hoặc bàn đã tồn tại trong khu vực này.' : 'Không thể tạo dữ liệu sơ đồ.'
+    const message = error instanceof Error && error.message.includes('UNIQUE') ? 'Tên khu vực hoặc bàn đã tồn tại.' : 'Không thể lưu dữ liệu bàn.'
     return Response.json({ message }, { status: 409 })
   }
 }

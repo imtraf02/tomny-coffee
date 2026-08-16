@@ -6,7 +6,7 @@ export const Route = createFileRoute('/api/auth/logout')({
     handlers: {
       POST: async ({ request }) => {
         await destroySession(request)
-        return Response.json({ ok: true }, { headers: { 'set-cookie': expiredSessionCookie() } })
+        return Response.json({ ok: true }, { headers: { 'set-cookie': expiredSessionCookie(request) } })
       },
     },
   },

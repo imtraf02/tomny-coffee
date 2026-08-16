@@ -1,7 +1,14 @@
 import { openDB } from 'idb'
 
 export type PendingCheckout = { idempotencyKey: string; createdAt: number; payload: Record<string, unknown>; attempts: number; lastError?: string }
-const database = openDB('tomny-pos', 1, { upgrade(db) { db.createObjectStore('outbox', { keyPath: 'idempotencyKey' }) } })
+export type CatalogVariant = { id: string; name: string; price: number; active: boolean; sortOrder: number; updatedAt: number; modifierGroupIds?: string[] }
+export type CatalogModifier = { id: string; name: string; priceDelta: number; active: boolean; sortOrder: number; updatedAt: number }
+export type CatalogModifierGroup = { id: string; name: string; minSelections: number; maxSelections: number; active: boolean; sortOrder: number; updatedAt: number; modifiers: CatalogModifier[] }
+export type CatalogCombo = { id: string; menuItemId: string; price: number; active: boolean; components: { variantId: string; quantity: number }[] }
+export type CatalogProduct = { id: string; categoryId: string; name: string; description: string; imageKey: string | null; active: boolean; kind?: 'standard' | 'combo'; sortOrder?: number; createdAt: number; updatedAt: number; variants: CatalogVariant[] }
+export type CatalogCategory = { id: string; name: string; sortOrder: number; active: boolean; updatedAt: number }
+export type CachedCatalog = { id: 'active'; cachedAt: number; categories: CatalogCategory[]; products: CatalogProduct[]; modifierGroups?: CatalogModifierGroup[]; combos?: CatalogCombo[] }
+const database = openDB('tomny-pos', 2, { upgrade(db) { if (!db.objectStoreNames.contains('outbox')) db.createObjectStore('outbox', { keyPath: 'idempotencyKey' }); if (!db.objectStoreNames.contains('catalog')) db.createObjectStore('catalog', { keyPath: 'id' }) } })
 
 export function deviceId() {
   const key = 'tomny-device-id'
@@ -18,6 +25,10 @@ export async function enqueueCheckout(payload: Record<string, unknown>) {
 }
 
 export async function pendingCheckouts() { return (await database).getAll('outbox') as Promise<PendingCheckout[]> }
+
+export async function cachedCatalog() { return (await database).get('catalog', 'active') as Promise<CachedCatalog | undefined> }
+
+export async function cacheCatalog(catalog: Omit<CachedCatalog, 'id' | 'cachedAt'>) { await (await database).put('catalog', { id: 'active', cachedAt: Date.now(), ...catalog } satisfies CachedCatalog) }
 
 export async function syncOutbox() {
   const db = await database

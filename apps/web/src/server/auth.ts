@@ -15,7 +15,7 @@ function base64UrlToBytes(value: string) {
   return Uint8Array.from(atob(padded), (character) => character.charCodeAt(0))
 }
 
-async function digest(value: string) {
+export async function digest(value: string) {
   return bytesToBase64Url(new Uint8Array(await crypto.subtle.digest('SHA-256', encoder.encode(value))))
 }
 
@@ -48,11 +48,16 @@ export async function createSession(userId: string) {
   return { token, expiresAt }
 }
 
-export function sessionCookie(token: string, expiresAt: Date) {
-  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; Secure; SameSite=Lax; Expires=${expiresAt.toUTCString()}`
+function secureAttribute(request?: Request) {
+  if (!request) return 'Secure; '
+  return new URL(request.url).protocol === 'https:' ? 'Secure; ' : ''
 }
 
-export function expiredSessionCookie() { return `${SESSION_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0` }
+export function sessionCookie(token: string, expiresAt: Date, request?: Request) {
+  return `${SESSION_COOKIE}=${token}; Path=/; HttpOnly; ${secureAttribute(request)}SameSite=Lax; Expires=${expiresAt.toUTCString()}`
+}
+
+export function expiredSessionCookie(request?: Request) { return `${SESSION_COOKIE}=; Path=/; HttpOnly; ${secureAttribute(request)}SameSite=Lax; Max-Age=0` }
 
 export type CurrentUser = { id: string; email: string; displayName: string; permissions: string[] }
 
@@ -73,4 +78,17 @@ export async function destroySession(request: Request) {
 export function requirePermission(user: CurrentUser | null, permission: string) {
   if (!user || !user.permissions.includes(permission)) throw new Response('Bạn không có quyền thực hiện thao tác này.', { status: 403 })
   return user
+}
+
+export function hasPermission(user: CurrentUser | null, permission: string) {
+  return Boolean(user?.permissions.includes(permission))
+}
+
+export function requireAnyPermission(user: CurrentUser | null, permissions: string[]) {
+  if (!user || !permissions.some((permission) => user.permissions.includes(permission))) throw new Response('Bạn không có quyền truy cập khu vực này.', { status: 403 })
+  return user
+}
+
+export function passwordPolicy(password: string) {
+  return password.length >= 10 && password.length <= 128
 }

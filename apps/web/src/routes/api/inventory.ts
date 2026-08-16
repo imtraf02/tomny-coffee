@@ -1,0 +1,94 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { env } from 'cloudflare:workers'
+import { z } from 'zod'
+import { getCurrentUser, requirePermission } from '../../server/auth'
+
+const ingredientSchema = z.object({
+  id: z.string().uuid().optional(),
+  name: z.string().trim().min(1).max(100),
+  unit: z.string().trim().min(1).max(20),
+  reorderPoint: z.number().finite().min(0).max(1_000_000).default(0),
+  active: z.boolean().default(true),
+})
+
+const adjustmentSchema = z.object({
+  ingredientId: z.string().uuid(),
+  type: z.enum(['receipt', 'adjustment', 'stocktake']),
+  quantityDelta: z.number().finite().refine((value) => value !== 0, 'Số lượng điều chỉnh không được bằng 0.'),
+  reason: z.string().trim().min(2).max(250),
+  unitCost: z.number().int().nonnegative().optional(),
+  expiresAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+}).superRefine((value, ctx) => {
+  if (value.type === 'receipt' && (value.quantityDelta <= 0 || value.unitCost === undefined)) ctx.addIssue({ code: 'custom', path: ['unitCost'], message: 'Phiếu nhập cần số lượng dương và giá vốn.' })
+})
+
+const inputSchema = z.discriminatedUnion('action', [
+  z.object({ action: z.literal('saveIngredient'), ingredient: ingredientSchema }),
+  z.object({ action: z.literal('adjust'), adjustment: adjustmentSchema }),
+])
+
+export const Route = createFileRoute('/api/inventory')({
+  server: { handlers: { GET: listInventory, POST: mutateInventory } },
+})
+
+async function listInventory({ request }: { request: Request }) {
+  requirePermission(await getCurrentUser(request), 'inventory.read')
+  const ingredientId = new URL(request.url).searchParams.get('ingredientId')
+  const [ingredients, inventoryValue] = await Promise.all([env.DB.prepare(`
+    SELECT id, name, unit, reorder_point AS reorderPoint, current_quantity AS currentQuantity, active
+    FROM ingredients
+    ORDER BY active DESC, name
+  `).all<{ id: string; name: string; unit: string; reorderPoint: number; currentQuantity: number; active: number }>(), env.DB.prepare('SELECT COALESCE(SUM(remaining_quantity * unit_cost), 0) AS value FROM inventory_lots WHERE remaining_quantity > 0').first<{ value: number }>()])
+  const movements = await env.DB.prepare(`
+    SELECT m.id, m.ingredient_id AS ingredientId, i.name AS ingredientName, m.type,
+      m.quantity_delta AS quantityDelta, m.reason, m.created_at AS createdAt,
+      u.display_name AS actorName
+    FROM inventory_movements m
+    JOIN ingredients i ON i.id = m.ingredient_id
+    JOIN users u ON u.id = m.actor_id
+    ${ingredientId ? 'WHERE m.ingredient_id = ?' : ''}
+    ORDER BY m.created_at DESC
+    LIMIT 300
+  `).bind(...(ingredientId ? [ingredientId] : [])).all()
+  return Response.json({
+    ingredients: ingredients.results.map((item) => ({ ...item, active: Boolean(item.active), lowStock: item.currentQuantity <= item.reorderPoint })),
+    movements: movements.results,
+    inventoryValue: Number(inventoryValue?.value ?? 0),
+  })
+}
+
+async function mutateInventory({ request }: { request: Request }) {
+  const body = inputSchema.safeParse(await request.json().catch(() => null))
+  if (!body.success) return Response.json({ message: 'Dữ liệu kho không hợp lệ.', issues: body.error.issues }, { status: 400 })
+  const actor = requirePermission(await getCurrentUser(request), 'inventory.manage')
+  const now = Date.now()
+  try {
+    if (body.data.action === 'saveIngredient') {
+      const ingredient = body.data.ingredient
+      const id = ingredient.id ?? crypto.randomUUID()
+      const statement = ingredient.id
+        ? env.DB.prepare('UPDATE ingredients SET name = ?, unit = ?, reorder_point = ?, active = ? WHERE id = ?').bind(ingredient.name, ingredient.unit, ingredient.reorderPoint, Number(ingredient.active), id)
+        : env.DB.prepare('INSERT INTO ingredients (id, name, unit, reorder_point, current_quantity, active) VALUES (?, ?, ?, ?, 0, ?)').bind(id, ingredient.name, ingredient.unit, ingredient.reorderPoint, Number(ingredient.active))
+      await env.DB.batch([statement, env.DB.prepare('INSERT INTO audit_logs (id, actor_id, entity_type, entity_id, action, detail_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(crypto.randomUUID(), actor.id, 'ingredient', id, ingredient.id ? 'updated' : 'created', JSON.stringify(ingredient), now)])
+      return Response.json({ id })
+    }
+
+    const adjustment = body.data.adjustment
+    const ingredient = await env.DB.prepare('SELECT id, current_quantity AS currentQuantity FROM ingredients WHERE id = ? AND active = 1').bind(adjustment.ingredientId).first<{ id: string; currentQuantity: number }>()
+    if (!ingredient) return Response.json({ message: 'Nguyên liệu không tồn tại hoặc đã ngừng sử dụng.' }, { status: 404 })
+    const nextQuantity = ingredient.currentQuantity + adjustment.quantityDelta
+    if (nextQuantity < 0) return Response.json({ message: 'Số lượng xuất vượt tồn hiện tại. Kiểm tra kho trước khi lưu.' }, { status: 409 })
+    const movementId = crypto.randomUUID()
+    const lotId = adjustment.type === 'receipt' ? crypto.randomUUID() : null
+    await env.DB.batch([
+      env.DB.prepare('UPDATE ingredients SET current_quantity = ? WHERE id = ?').bind(nextQuantity, ingredient.id),
+      ...(lotId ? [env.DB.prepare('INSERT INTO inventory_lots (id, ingredient_id, supplier_id, received_at, expires_at, original_quantity, remaining_quantity, unit_cost, note) VALUES (?, ?, NULL, ?, ?, ?, ?, ?, ?)').bind(lotId, ingredient.id, now, adjustment.expiresAt ? new Date(`${adjustment.expiresAt}T23:59:59+07:00`).getTime() : null, adjustment.quantityDelta, adjustment.quantityDelta, adjustment.unitCost, adjustment.reason)] : []),
+      env.DB.prepare('INSERT INTO inventory_movements (id, ingredient_id, lot_id, order_id, type, quantity_delta, unit_cost, reason, actor_id, created_at) VALUES (?, ?, ?, NULL, ?, ?, ?, ?, ?, ?)').bind(movementId, ingredient.id, lotId, adjustment.type, adjustment.quantityDelta, adjustment.unitCost ?? null, adjustment.reason, actor.id, now),
+      env.DB.prepare('INSERT INTO audit_logs (id, actor_id, entity_type, entity_id, action, detail_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)').bind(crypto.randomUUID(), actor.id, 'ingredient', ingredient.id, 'adjusted', JSON.stringify({ ...adjustment, previousQuantity: ingredient.currentQuantity, nextQuantity, lotId }), now),
+    ])
+    return Response.json({ movementId, lotId, currentQuantity: nextQuantity })
+  } catch (error) {
+    const message = error instanceof Error && error.message.includes('UNIQUE') ? 'Tên nguyên liệu đã tồn tại.' : 'Không thể lưu thay đổi kho.'
+    return Response.json({ message }, { status: 409 })
+  }
+}

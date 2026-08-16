@@ -1,5 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { Providers } from '../components/Providers'
+import { BottomFloatingBar } from '../components/BottomFloatingBar'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({
@@ -22,7 +23,10 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <div className="app-root"><Providers>{children}</Providers></div>
+        <div className="app-root pb-20 md:pb-6 print:pb-0">
+          <Providers>{children}</Providers>
+          <BottomFloatingBar />
+        </div>
         <Scripts />
       </body>
     </html>

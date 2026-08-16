@@ -3,6 +3,7 @@ import { readSession } from '../server/session'
 
 export const Route = createFileRoute('/')({
   beforeLoad: async () => {
-    throw redirect({ to: await readSession() ? '/pos' : '/login' })
+    const user = await readSession()
+    throw redirect({ to: user ? (user.permissions.includes('pos.read') ? '/pos' : user.permissions.includes('kds.read') ? '/kds' : '/admin') : '/login' })
   },
 })

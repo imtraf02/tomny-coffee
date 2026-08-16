@@ -10,24 +10,60 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AccountRouteImport } from './routes/account'
 import { Route as AdminRouteImport } from './routes/admin'
+import { Route as KdsRouteImport } from './routes/kds'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as PosRouteImport } from './routes/pos'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminAuditRouteImport } from './routes/admin/audit'
+import { Route as AdminInventoryRouteImport } from './routes/admin/inventory'
+import { Route as AdminMenuRouteImport } from './routes/admin/menu'
+import { Route as AdminOrdersRouteImport } from './routes/admin/orders'
+import { Route as AdminReportsRouteImport } from './routes/admin/reports'
+import { Route as AdminStaffRouteImport } from './routes/admin/staff'
+import { Route as AdminTablesRouteImport } from './routes/admin/tables'
+import { Route as ApiAuditRouteImport } from './routes/api/audit'
 import { Route as ApiFloorPlanRouteImport } from './routes/api/floor-plan'
+import { Route as ApiInventoryRouteImport } from './routes/api/inventory'
+import { Route as ApiKdsRouteImport } from './routes/api/kds'
+import { Route as ApiMenuRouteImport } from './routes/api/menu'
+import { Route as ApiReportsRouteImport } from './routes/api/reports'
+import { Route as ApiReservationsRouteImport } from './routes/api/reservations'
+import { Route as ApiStaffRouteImport } from './routes/api/staff'
+import { Route as ApiTableBlocksRouteImport } from './routes/api/table-blocks'
+import { Route as ApiTimeclockRouteImport } from './routes/api/timeclock'
+import { Route as InviteTokenRouteImport } from './routes/invite/$token'
+import { Route as ApiAuthInviteRouteImport } from './routes/api/auth/invite'
 import { Route as ApiAuthLoginRouteImport } from './routes/api/auth/login'
 import { Route as ApiAuthLogoutRouteImport } from './routes/api/auth/logout'
 import { Route as ApiAuthMeRouteImport } from './routes/api/auth/me'
+import { Route as ApiAuthPasswordRouteImport } from './routes/api/auth/password'
 import { Route as ApiMediaMenuImagesRouteImport } from './routes/api/media/menu-images'
 import { Route as ApiOrdersCheckoutRouteImport } from './routes/api/orders/checkout'
+import { Route as ApiOrdersDraftsRouteImport } from './routes/api/orders/drafts'
+import { Route as ApiOrdersHistoryRouteImport } from './routes/api/orders/history'
+import { Route as ApiOrdersPayRouteImport } from './routes/api/orders/pay'
+import { Route as ApiTrpcPathRouteImport } from './routes/api/trpc/$path'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AccountRoute = AccountRouteImport.update({
+  id: '/account',
+  path: '/account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminRoute = AdminRouteImport.update({
   id: '/admin',
   path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KdsRoute = KdsRouteImport.update({
+  id: '/kds',
+  path: '/kds',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -40,9 +76,104 @@ const PosRoute = PosRouteImport.update({
   path: '/pos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminAuditRoute = AdminAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminInventoryRoute = AdminInventoryRouteImport.update({
+  id: '/inventory',
+  path: '/inventory',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminMenuRoute = AdminMenuRouteImport.update({
+  id: '/menu',
+  path: '/menu',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminOrdersRoute = AdminOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminStaffRoute = AdminStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminTablesRoute = AdminTablesRouteImport.update({
+  id: '/tables',
+  path: '/tables',
+  getParentRoute: () => AdminRoute,
+} as any)
+const ApiAuditRoute = ApiAuditRouteImport.update({
+  id: '/api/audit',
+  path: '/api/audit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiFloorPlanRoute = ApiFloorPlanRouteImport.update({
   id: '/api/floor-plan',
   path: '/api/floor-plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiInventoryRoute = ApiInventoryRouteImport.update({
+  id: '/api/inventory',
+  path: '/api/inventory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiKdsRoute = ApiKdsRouteImport.update({
+  id: '/api/kds',
+  path: '/api/kds',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMenuRoute = ApiMenuRouteImport.update({
+  id: '/api/menu',
+  path: '/api/menu',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReportsRoute = ApiReportsRouteImport.update({
+  id: '/api/reports',
+  path: '/api/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReservationsRoute = ApiReservationsRouteImport.update({
+  id: '/api/reservations',
+  path: '/api/reservations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStaffRoute = ApiStaffRouteImport.update({
+  id: '/api/staff',
+  path: '/api/staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTableBlocksRoute = ApiTableBlocksRouteImport.update({
+  id: '/api/table-blocks',
+  path: '/api/table-blocks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTimeclockRoute = ApiTimeclockRouteImport.update({
+  id: '/api/timeclock',
+  path: '/api/timeclock',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InviteTokenRoute = InviteTokenRouteImport.update({
+  id: '/invite/$token',
+  path: '/invite/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthInviteRoute = ApiAuthInviteRouteImport.update({
+  id: '/api/auth/invite',
+  path: '/api/auth/invite',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthLoginRoute = ApiAuthLoginRouteImport.update({
@@ -60,6 +191,11 @@ const ApiAuthMeRoute = ApiAuthMeRouteImport.update({
   path: '/api/auth/me',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthPasswordRoute = ApiAuthPasswordRouteImport.update({
+  id: '/api/auth/password',
+  path: '/api/auth/password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMediaMenuImagesRoute = ApiMediaMenuImagesRouteImport.update({
   id: '/api/media/menu-images',
   path: '/api/media/menu-images',
@@ -70,94 +206,286 @@ const ApiOrdersCheckoutRoute = ApiOrdersCheckoutRouteImport.update({
   path: '/api/orders/checkout',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiOrdersDraftsRoute = ApiOrdersDraftsRouteImport.update({
+  id: '/api/orders/drafts',
+  path: '/api/orders/drafts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOrdersHistoryRoute = ApiOrdersHistoryRouteImport.update({
+  id: '/api/orders/history',
+  path: '/api/orders/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiOrdersPayRoute = ApiOrdersPayRouteImport.update({
+  id: '/api/orders/pay',
+  path: '/api/orders/pay',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTrpcPathRoute = ApiTrpcPathRouteImport.update({
+  id: '/api/trpc/$path',
+  path: '/api/trpc/$path',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/account': typeof AccountRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/kds': typeof KdsRoute
   '/login': typeof LoginRoute
   '/pos': typeof PosRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/menu': typeof AdminMenuRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/staff': typeof AdminStaffRoute
+  '/admin/tables': typeof AdminTablesRoute
+  '/api/audit': typeof ApiAuditRoute
   '/api/floor-plan': typeof ApiFloorPlanRoute
+  '/api/inventory': typeof ApiInventoryRoute
+  '/api/kds': typeof ApiKdsRoute
+  '/api/menu': typeof ApiMenuRoute
+  '/api/reports': typeof ApiReportsRoute
+  '/api/reservations': typeof ApiReservationsRoute
+  '/api/staff': typeof ApiStaffRoute
+  '/api/table-blocks': typeof ApiTableBlocksRoute
+  '/api/timeclock': typeof ApiTimeclockRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/admin/': typeof AdminIndexRoute
+  '/api/auth/invite': typeof ApiAuthInviteRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/password': typeof ApiAuthPasswordRoute
   '/api/media/menu-images': typeof ApiMediaMenuImagesRoute
   '/api/orders/checkout': typeof ApiOrdersCheckoutRoute
+  '/api/orders/drafts': typeof ApiOrdersDraftsRoute
+  '/api/orders/history': typeof ApiOrdersHistoryRoute
+  '/api/orders/pay': typeof ApiOrdersPayRoute
+  '/api/trpc/$path': typeof ApiTrpcPathRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/account': typeof AccountRoute
+  '/kds': typeof KdsRoute
   '/login': typeof LoginRoute
   '/pos': typeof PosRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/menu': typeof AdminMenuRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/staff': typeof AdminStaffRoute
+  '/admin/tables': typeof AdminTablesRoute
+  '/api/audit': typeof ApiAuditRoute
   '/api/floor-plan': typeof ApiFloorPlanRoute
+  '/api/inventory': typeof ApiInventoryRoute
+  '/api/kds': typeof ApiKdsRoute
+  '/api/menu': typeof ApiMenuRoute
+  '/api/reports': typeof ApiReportsRoute
+  '/api/reservations': typeof ApiReservationsRoute
+  '/api/staff': typeof ApiStaffRoute
+  '/api/table-blocks': typeof ApiTableBlocksRoute
+  '/api/timeclock': typeof ApiTimeclockRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/admin': typeof AdminIndexRoute
+  '/api/auth/invite': typeof ApiAuthInviteRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/password': typeof ApiAuthPasswordRoute
   '/api/media/menu-images': typeof ApiMediaMenuImagesRoute
   '/api/orders/checkout': typeof ApiOrdersCheckoutRoute
+  '/api/orders/drafts': typeof ApiOrdersDraftsRoute
+  '/api/orders/history': typeof ApiOrdersHistoryRoute
+  '/api/orders/pay': typeof ApiOrdersPayRoute
+  '/api/trpc/$path': typeof ApiTrpcPathRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/admin': typeof AdminRoute
+  '/account': typeof AccountRoute
+  '/admin': typeof AdminRouteWithChildren
+  '/kds': typeof KdsRoute
   '/login': typeof LoginRoute
   '/pos': typeof PosRoute
+  '/admin/audit': typeof AdminAuditRoute
+  '/admin/inventory': typeof AdminInventoryRoute
+  '/admin/menu': typeof AdminMenuRoute
+  '/admin/orders': typeof AdminOrdersRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/staff': typeof AdminStaffRoute
+  '/admin/tables': typeof AdminTablesRoute
+  '/api/audit': typeof ApiAuditRoute
   '/api/floor-plan': typeof ApiFloorPlanRoute
+  '/api/inventory': typeof ApiInventoryRoute
+  '/api/kds': typeof ApiKdsRoute
+  '/api/menu': typeof ApiMenuRoute
+  '/api/reports': typeof ApiReportsRoute
+  '/api/reservations': typeof ApiReservationsRoute
+  '/api/staff': typeof ApiStaffRoute
+  '/api/table-blocks': typeof ApiTableBlocksRoute
+  '/api/timeclock': typeof ApiTimeclockRoute
+  '/invite/$token': typeof InviteTokenRoute
+  '/admin/': typeof AdminIndexRoute
+  '/api/auth/invite': typeof ApiAuthInviteRoute
   '/api/auth/login': typeof ApiAuthLoginRoute
   '/api/auth/logout': typeof ApiAuthLogoutRoute
   '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/password': typeof ApiAuthPasswordRoute
   '/api/media/menu-images': typeof ApiMediaMenuImagesRoute
   '/api/orders/checkout': typeof ApiOrdersCheckoutRoute
+  '/api/orders/drafts': typeof ApiOrdersDraftsRoute
+  '/api/orders/history': typeof ApiOrdersHistoryRoute
+  '/api/orders/pay': typeof ApiOrdersPayRoute
+  '/api/trpc/$path': typeof ApiTrpcPathRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/account'
     | '/admin'
+    | '/kds'
     | '/login'
     | '/pos'
+    | '/admin/audit'
+    | '/admin/inventory'
+    | '/admin/menu'
+    | '/admin/orders'
+    | '/admin/reports'
+    | '/admin/staff'
+    | '/admin/tables'
+    | '/api/audit'
     | '/api/floor-plan'
+    | '/api/inventory'
+    | '/api/kds'
+    | '/api/menu'
+    | '/api/reports'
+    | '/api/reservations'
+    | '/api/staff'
+    | '/api/table-blocks'
+    | '/api/timeclock'
+    | '/invite/$token'
+    | '/admin/'
+    | '/api/auth/invite'
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/password'
     | '/api/media/menu-images'
     | '/api/orders/checkout'
+    | '/api/orders/drafts'
+    | '/api/orders/history'
+    | '/api/orders/pay'
+    | '/api/trpc/$path'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/admin'
+    | '/account'
+    | '/kds'
     | '/login'
     | '/pos'
+    | '/admin/audit'
+    | '/admin/inventory'
+    | '/admin/menu'
+    | '/admin/orders'
+    | '/admin/reports'
+    | '/admin/staff'
+    | '/admin/tables'
+    | '/api/audit'
     | '/api/floor-plan'
+    | '/api/inventory'
+    | '/api/kds'
+    | '/api/menu'
+    | '/api/reports'
+    | '/api/reservations'
+    | '/api/staff'
+    | '/api/table-blocks'
+    | '/api/timeclock'
+    | '/invite/$token'
+    | '/admin'
+    | '/api/auth/invite'
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/password'
     | '/api/media/menu-images'
     | '/api/orders/checkout'
+    | '/api/orders/drafts'
+    | '/api/orders/history'
+    | '/api/orders/pay'
+    | '/api/trpc/$path'
   id:
     | '__root__'
     | '/'
+    | '/account'
     | '/admin'
+    | '/kds'
     | '/login'
     | '/pos'
+    | '/admin/audit'
+    | '/admin/inventory'
+    | '/admin/menu'
+    | '/admin/orders'
+    | '/admin/reports'
+    | '/admin/staff'
+    | '/admin/tables'
+    | '/api/audit'
     | '/api/floor-plan'
+    | '/api/inventory'
+    | '/api/kds'
+    | '/api/menu'
+    | '/api/reports'
+    | '/api/reservations'
+    | '/api/staff'
+    | '/api/table-blocks'
+    | '/api/timeclock'
+    | '/invite/$token'
+    | '/admin/'
+    | '/api/auth/invite'
     | '/api/auth/login'
     | '/api/auth/logout'
     | '/api/auth/me'
+    | '/api/auth/password'
     | '/api/media/menu-images'
     | '/api/orders/checkout'
+    | '/api/orders/drafts'
+    | '/api/orders/history'
+    | '/api/orders/pay'
+    | '/api/trpc/$path'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AdminRoute: typeof AdminRoute
+  AccountRoute: typeof AccountRoute
+  AdminRoute: typeof AdminRouteWithChildren
+  KdsRoute: typeof KdsRoute
   LoginRoute: typeof LoginRoute
   PosRoute: typeof PosRoute
+  ApiAuditRoute: typeof ApiAuditRoute
   ApiFloorPlanRoute: typeof ApiFloorPlanRoute
+  ApiInventoryRoute: typeof ApiInventoryRoute
+  ApiKdsRoute: typeof ApiKdsRoute
+  ApiMenuRoute: typeof ApiMenuRoute
+  ApiReportsRoute: typeof ApiReportsRoute
+  ApiReservationsRoute: typeof ApiReservationsRoute
+  ApiStaffRoute: typeof ApiStaffRoute
+  ApiTableBlocksRoute: typeof ApiTableBlocksRoute
+  ApiTimeclockRoute: typeof ApiTimeclockRoute
+  InviteTokenRoute: typeof InviteTokenRoute
+  ApiAuthInviteRoute: typeof ApiAuthInviteRoute
   ApiAuthLoginRoute: typeof ApiAuthLoginRoute
   ApiAuthLogoutRoute: typeof ApiAuthLogoutRoute
   ApiAuthMeRoute: typeof ApiAuthMeRoute
+  ApiAuthPasswordRoute: typeof ApiAuthPasswordRoute
   ApiMediaMenuImagesRoute: typeof ApiMediaMenuImagesRoute
   ApiOrdersCheckoutRoute: typeof ApiOrdersCheckoutRoute
+  ApiOrdersDraftsRoute: typeof ApiOrdersDraftsRoute
+  ApiOrdersHistoryRoute: typeof ApiOrdersHistoryRoute
+  ApiOrdersPayRoute: typeof ApiOrdersPayRoute
+  ApiTrpcPathRoute: typeof ApiTrpcPathRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -169,11 +497,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/account': {
+      id: '/account'
+      path: '/account'
+      fullPath: '/account'
+      preLoaderRoute: typeof AccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin': {
       id: '/admin'
       path: '/admin'
       fullPath: '/admin'
       preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kds': {
+      id: '/kds'
+      path: '/kds'
+      fullPath: '/kds'
+      preLoaderRoute: typeof KdsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -190,11 +532,144 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/audit': {
+      id: '/admin/audit'
+      path: '/audit'
+      fullPath: '/admin/audit'
+      preLoaderRoute: typeof AdminAuditRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/inventory': {
+      id: '/admin/inventory'
+      path: '/inventory'
+      fullPath: '/admin/inventory'
+      preLoaderRoute: typeof AdminInventoryRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/menu': {
+      id: '/admin/menu'
+      path: '/menu'
+      fullPath: '/admin/menu'
+      preLoaderRoute: typeof AdminMenuRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/orders': {
+      id: '/admin/orders'
+      path: '/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AdminOrdersRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/staff': {
+      id: '/admin/staff'
+      path: '/staff'
+      fullPath: '/admin/staff'
+      preLoaderRoute: typeof AdminStaffRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/tables': {
+      id: '/admin/tables'
+      path: '/tables'
+      fullPath: '/admin/tables'
+      preLoaderRoute: typeof AdminTablesRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/api/audit': {
+      id: '/api/audit'
+      path: '/api/audit'
+      fullPath: '/api/audit'
+      preLoaderRoute: typeof ApiAuditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/floor-plan': {
       id: '/api/floor-plan'
       path: '/api/floor-plan'
       fullPath: '/api/floor-plan'
       preLoaderRoute: typeof ApiFloorPlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/inventory': {
+      id: '/api/inventory'
+      path: '/api/inventory'
+      fullPath: '/api/inventory'
+      preLoaderRoute: typeof ApiInventoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/kds': {
+      id: '/api/kds'
+      path: '/api/kds'
+      fullPath: '/api/kds'
+      preLoaderRoute: typeof ApiKdsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/menu': {
+      id: '/api/menu'
+      path: '/api/menu'
+      fullPath: '/api/menu'
+      preLoaderRoute: typeof ApiMenuRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reports': {
+      id: '/api/reports'
+      path: '/api/reports'
+      fullPath: '/api/reports'
+      preLoaderRoute: typeof ApiReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reservations': {
+      id: '/api/reservations'
+      path: '/api/reservations'
+      fullPath: '/api/reservations'
+      preLoaderRoute: typeof ApiReservationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/staff': {
+      id: '/api/staff'
+      path: '/api/staff'
+      fullPath: '/api/staff'
+      preLoaderRoute: typeof ApiStaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/table-blocks': {
+      id: '/api/table-blocks'
+      path: '/api/table-blocks'
+      fullPath: '/api/table-blocks'
+      preLoaderRoute: typeof ApiTableBlocksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/timeclock': {
+      id: '/api/timeclock'
+      path: '/api/timeclock'
+      fullPath: '/api/timeclock'
+      preLoaderRoute: typeof ApiTimeclockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/invite/$token': {
+      id: '/invite/$token'
+      path: '/invite/$token'
+      fullPath: '/invite/$token'
+      preLoaderRoute: typeof InviteTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/invite': {
+      id: '/api/auth/invite'
+      path: '/api/auth/invite'
+      fullPath: '/api/auth/invite'
+      preLoaderRoute: typeof ApiAuthInviteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/login': {
@@ -218,6 +693,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthMeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/password': {
+      id: '/api/auth/password'
+      path: '/api/auth/password'
+      fullPath: '/api/auth/password'
+      preLoaderRoute: typeof ApiAuthPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/media/menu-images': {
       id: '/api/media/menu-images'
       path: '/api/media/menu-images'
@@ -232,20 +714,90 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiOrdersCheckoutRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/orders/drafts': {
+      id: '/api/orders/drafts'
+      path: '/api/orders/drafts'
+      fullPath: '/api/orders/drafts'
+      preLoaderRoute: typeof ApiOrdersDraftsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/orders/history': {
+      id: '/api/orders/history'
+      path: '/api/orders/history'
+      fullPath: '/api/orders/history'
+      preLoaderRoute: typeof ApiOrdersHistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/orders/pay': {
+      id: '/api/orders/pay'
+      path: '/api/orders/pay'
+      fullPath: '/api/orders/pay'
+      preLoaderRoute: typeof ApiOrdersPayRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/trpc/$path': {
+      id: '/api/trpc/$path'
+      path: '/api/trpc/$path'
+      fullPath: '/api/trpc/$path'
+      preLoaderRoute: typeof ApiTrpcPathRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
+interface AdminRouteChildren {
+  AdminAuditRoute: typeof AdminAuditRoute
+  AdminInventoryRoute: typeof AdminInventoryRoute
+  AdminMenuRoute: typeof AdminMenuRoute
+  AdminOrdersRoute: typeof AdminOrdersRoute
+  AdminReportsRoute: typeof AdminReportsRoute
+  AdminStaffRoute: typeof AdminStaffRoute
+  AdminTablesRoute: typeof AdminTablesRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+}
+
+const AdminRouteChildren: AdminRouteChildren = {
+  AdminAuditRoute: AdminAuditRoute,
+  AdminInventoryRoute: AdminInventoryRoute,
+  AdminMenuRoute: AdminMenuRoute,
+  AdminOrdersRoute: AdminOrdersRoute,
+  AdminReportsRoute: AdminReportsRoute,
+  AdminStaffRoute: AdminStaffRoute,
+  AdminTablesRoute: AdminTablesRoute,
+  AdminIndexRoute: AdminIndexRoute,
+}
+
+const AdminRouteWithChildren = AdminRoute._addFileChildren(AdminRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AdminRoute: AdminRoute,
+  AccountRoute: AccountRoute,
+  AdminRoute: AdminRouteWithChildren,
+  KdsRoute: KdsRoute,
   LoginRoute: LoginRoute,
   PosRoute: PosRoute,
+  ApiAuditRoute: ApiAuditRoute,
   ApiFloorPlanRoute: ApiFloorPlanRoute,
+  ApiInventoryRoute: ApiInventoryRoute,
+  ApiKdsRoute: ApiKdsRoute,
+  ApiMenuRoute: ApiMenuRoute,
+  ApiReportsRoute: ApiReportsRoute,
+  ApiReservationsRoute: ApiReservationsRoute,
+  ApiStaffRoute: ApiStaffRoute,
+  ApiTableBlocksRoute: ApiTableBlocksRoute,
+  ApiTimeclockRoute: ApiTimeclockRoute,
+  InviteTokenRoute: InviteTokenRoute,
+  ApiAuthInviteRoute: ApiAuthInviteRoute,
   ApiAuthLoginRoute: ApiAuthLoginRoute,
   ApiAuthLogoutRoute: ApiAuthLogoutRoute,
   ApiAuthMeRoute: ApiAuthMeRoute,
+  ApiAuthPasswordRoute: ApiAuthPasswordRoute,
   ApiMediaMenuImagesRoute: ApiMediaMenuImagesRoute,
   ApiOrdersCheckoutRoute: ApiOrdersCheckoutRoute,
+  ApiOrdersDraftsRoute: ApiOrdersDraftsRoute,
+  ApiOrdersHistoryRoute: ApiOrdersHistoryRoute,
+  ApiOrdersPayRoute: ApiOrdersPayRoute,
+  ApiTrpcPathRoute: ApiTrpcPathRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

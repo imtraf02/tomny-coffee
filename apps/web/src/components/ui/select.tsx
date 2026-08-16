@@ -31,7 +31,7 @@ export const SelectLabel = React.forwardRef<
     <BaseSelect.Label
       ref={ref}
       className={resolveClassName(
-        'block text-xs font-bold uppercase tracking-wider text-[#8c8177] mb-1.5 cursor-default',
+        'block text-xs font-bold uppercase tracking-wider text-[var(--stone)] mb-1.5 cursor-default',
         className
       )}
       {...props}
@@ -45,13 +45,16 @@ SelectLabel.displayName = 'SelectLabel'
  */
 export const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof BaseSelect.Trigger>,
-  React.ComponentPropsWithoutRef<typeof BaseSelect.Trigger>
->(({ className, children, ...props }, ref) => {
+  React.ComponentPropsWithoutRef<typeof BaseSelect.Trigger> & { size?: 'sm' | 'md' }
+>(({ className, size = 'sm', children, ...props }, ref) => {
   return (
     <BaseSelect.Trigger
       ref={ref}
       className={resolveClassName(
-        'inline-flex min-h-10 min-w-44 items-center justify-between gap-3 rounded-lg border border-[#ded1c0] bg-white px-3.5 py-2 text-sm text-[#1c1512] shadow-xs select-none transition-colors hover:border-[#8c8177] focus-visible:outline-2 focus-visible:outline-[#c48a2e] focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 data-popup-open:border-[#2b1d17]',
+        cn(
+          'inline-flex items-center justify-between gap-2.5 rounded-[var(--radius-sm)] border border-[#d9d0c8] bg-white text-[var(--char)] shadow-xs select-none transition-colors hover:border-[var(--stone)] focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-1 disabled:cursor-not-allowed disabled:opacity-50 data-popup-open:border-[var(--espresso)]',
+          size === 'sm' ? 'min-h-10 px-3 py-1.5 text-xs sm:text-sm font-medium' : 'min-h-11 px-3.5 py-2 text-sm font-medium'
+        ),
         className
       )}
       {...props}
@@ -73,7 +76,7 @@ export const SelectValue = React.forwardRef<
     <BaseSelect.Value
       ref={ref}
       className={resolveClassName(
-        'truncate text-left data-placeholder:text-[#8c8177]',
+        'truncate text-left data-placeholder:text-[var(--stone)]',
         className
       )}
       {...props}
@@ -92,20 +95,21 @@ export const SelectIcon = React.forwardRef<
   return (
     <BaseSelect.Icon
       ref={ref}
-      className={resolveClassName('inline-flex shrink-0 text-[#8c8177]', className)}
+      className={resolveClassName('inline-flex shrink-0 text-[var(--stone)] ml-1', className)}
       {...props}
     >
       {children || (
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
+          width="15"
+          height="15"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
+          aria-hidden="true"
         >
           <path d="m6 9 6 6 6-6" />
         </svg>
@@ -146,7 +150,7 @@ export const SelectPopup = React.forwardRef<
     <BaseSelect.Popup
       ref={ref}
       className={resolveClassName(
-        'min-w-[var(--anchor-width)] overflow-hidden rounded-xl border border-[#ded1c0] bg-[#fffdf9] p-1 text-[#1c1512] shadow-xl outline-hidden transition-[opacity,scale] duration-150 ease-out origin-[var(--transform-origin)] data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95',
+        'min-w-[var(--anchor-width)] max-h-72 overflow-hidden rounded-[var(--radius-sm)] border border-[#ded1c0] bg-[#fffdf9] p-1 text-[var(--char)] shadow-xl outline-hidden transition-[opacity,scale] duration-150 ease-out origin-[var(--transform-origin)] data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95',
         className
       )}
       {...props}
@@ -166,7 +170,7 @@ export const SelectList = React.forwardRef<
     <BaseSelect.List
       ref={ref}
       className={resolveClassName(
-        'max-h-[var(--available-height,280px)] overflow-y-auto py-1 outline-hidden',
+        'max-h-[var(--available-height,280px)] overflow-y-auto py-0.5 outline-hidden',
         className
       )}
       {...props}
@@ -203,7 +207,7 @@ export const SelectGroupLabel = React.forwardRef<
     <BaseSelect.GroupLabel
       ref={ref}
       className={resolveClassName(
-        'px-2 py-1.5 text-xs font-semibold text-[#8c8177]',
+        'px-2.5 py-1.5 text-xs font-semibold text-[var(--stone)]',
         className
       )}
       {...props}
@@ -223,7 +227,7 @@ export const SelectItem = React.forwardRef<
     <BaseSelect.Item
       ref={ref}
       className={resolveClassName(
-        'relative flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-sm text-[#1c1512] outline-hidden select-none transition-colors data-highlighted:bg-[#efe3d0] data-disabled:pointer-events-none data-disabled:opacity-50',
+        'relative flex cursor-pointer items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-xs sm:text-sm text-[var(--char)] outline-hidden select-none transition-colors data-highlighted:bg-[var(--crema)] data-disabled:pointer-events-none data-disabled:opacity-50',
         className
       )}
       {...props}
@@ -249,14 +253,14 @@ export const SelectItemIndicator = React.forwardRef<
   return (
     <BaseSelect.ItemIndicator
       ref={ref}
-      className={resolveClassName('inline-flex shrink-0 text-[#b0432a] ml-2', className)}
+      className={resolveClassName('inline-flex shrink-0 text-[var(--ember)] ml-2', className)}
       {...props}
     >
       {children || (
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="16"
-          height="16"
+          width="14"
+          height="14"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -297,7 +301,7 @@ export const SelectScrollUpArrow = React.forwardRef<
     <BaseSelect.ScrollUpArrow
       ref={ref}
       className={resolveClassName(
-        'flex h-5 w-full items-center justify-center bg-[#fffdf9] text-xs text-[#8c8177]',
+        'flex h-5 w-full items-center justify-center bg-[#fffdf9] text-xs text-[var(--stone)]',
         className
       )}
       {...props}
@@ -316,7 +320,7 @@ export const SelectScrollDownArrow = React.forwardRef<
     <BaseSelect.ScrollDownArrow
       ref={ref}
       className={resolveClassName(
-        'flex h-5 w-full items-center justify-center bg-[#fffdf9] text-xs text-[#8c8177]',
+        'flex h-5 w-full items-center justify-center bg-[#fffdf9] text-xs text-[var(--stone)]',
         className
       )}
       {...props}
@@ -354,6 +358,92 @@ export const SelectContent = React.forwardRef<
 })
 SelectContent.displayName = 'SelectContent'
 
+export interface SelectOption {
+  value: string
+  label: string
+  disabled?: boolean
+}
+
+export interface AppSelectProps {
+  items: SelectOption[]
+  value?: string
+  defaultValue?: string
+  onValueChange?: (value: string) => void
+  placeholder?: string
+  disabled?: boolean
+  name?: string
+  required?: boolean
+  className?: string
+  triggerClassName?: string
+  popupClassName?: string
+  size?: 'sm' | 'md'
+  'aria-label'?: string
+}
+
+/**
+ * High-level, ergonomic Select component that binds items to BaseSelect.Root
+ * ensuring proper Vietnamese label lookup and clean styling out of the box.
+ */
+export function AppSelect({
+  items,
+  value,
+  defaultValue,
+  onValueChange,
+  placeholder = 'Chọn…',
+  disabled,
+  name,
+  required,
+  className,
+  triggerClassName,
+  popupClassName,
+  size = 'sm',
+  'aria-label': ariaLabel,
+}: AppSelectProps) {
+  return (
+    <SelectRoot
+      items={items}
+      value={value}
+      defaultValue={defaultValue}
+      onValueChange={(val) => {
+        if (typeof val === 'string' && onValueChange) {
+          onValueChange(val)
+        }
+      }}
+      disabled={disabled}
+      name={name}
+      required={required}
+    >
+      <SelectTrigger
+        size={size}
+        className={cn(triggerClassName, className)}
+        aria-label={ariaLabel}
+      >
+        <SelectValue placeholder={placeholder} />
+        <SelectIcon />
+      </SelectTrigger>
+      <SelectPortal>
+        <SelectPositioner sideOffset={4}>
+          <SelectPopup className={cn('min-w-[var(--anchor-width)] max-h-72 overflow-y-auto p-1', popupClassName)}>
+            <SelectList>
+              {items.map((item) => (
+                <SelectItem
+                  key={item.value}
+                  value={item.value}
+                  disabled={item.disabled}
+                  className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs sm:text-sm rounded-[var(--radius-sm)] cursor-pointer select-none data-highlighted:bg-[var(--crema)] data-disabled:opacity-50"
+                >
+                  <SelectItemText>{item.label}</SelectItemText>
+                  <SelectItemIndicator />
+                </SelectItem>
+              ))}
+            </SelectList>
+          </SelectPopup>
+        </SelectPositioner>
+      </SelectPortal>
+    </SelectRoot>
+  )
+}
+
 /**
  * Composite Select export.
  */
@@ -376,4 +466,5 @@ export const Select = Object.assign(SelectRoot, {
   ScrollUpArrow: SelectScrollUpArrow,
   ScrollDownArrow: SelectScrollDownArrow,
   Content: SelectContent,
+  Simple: AppSelect,
 })

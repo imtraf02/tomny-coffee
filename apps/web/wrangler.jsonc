@@ -13,7 +13,7 @@
       "migrations_dir": "./drizzle"
     }
   ],
-  "r2_buckets": [{ "binding": "MENU_IMAGES", "bucket_name": "tomny-coffee-menu-images" }],
+  "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "tomny-coffee-menu-images" }],
   "env": {
     "staging": {
       "name": "tomny-coffee-staging",
@@ -24,7 +24,7 @@
           "migrations_dir": "./drizzle"
         }
       ],
-      "r2_buckets": [{ "binding": "MENU_IMAGES", "bucket_name": "tomny-coffee-staging-menu-images" }]
+      "r2_buckets": [{ "binding": "BUCKET", "bucket_name": "tomny-coffee-staging-menu-images" }]
     }
   }
 }

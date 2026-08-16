@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, type ReactNode } from 'react'
 import { ToastProvider, Toaster } from '@/components/ui/toast'
+import { TRPCProvider, trpcClient } from '../client/trpc'
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
@@ -8,10 +9,12 @@ export function Providers({ children }: { children: ReactNode }) {
   )
   return (
     <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        {children}
-        <Toaster />
-      </ToastProvider>
+      <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
+        <ToastProvider>
+          {children}
+          <Toaster />
+        </ToastProvider>
+      </TRPCProvider>
     </QueryClientProvider>
   )
 }
