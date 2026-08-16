@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireAdminAccess } from '../../server/admin-access'
 import { AdminPageShell } from '../admin'
-import { CatalogManager } from '../../components/CatalogManager'
+import { CatalogManager } from '../../components/catalog-manager'
 
 export const Route = createFileRoute('/admin/menu')({
   beforeLoad: ({ location }) => requireAdminAccess(location, 'menu'),

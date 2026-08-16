@@ -52,7 +52,7 @@ export const SelectTrigger = React.forwardRef<
       ref={ref}
       className={resolveClassName(
         cn(
-          'inline-flex items-center justify-between gap-2.5 rounded-[var(--radius-sm)] border border-[#d9d0c8] bg-white text-[var(--char)] shadow-xs select-none transition-colors hover:border-[var(--stone)] focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-1 disabled:cursor-not-allowed disabled:opacity-50 data-popup-open:border-[var(--espresso)]',
+          'group inline-flex items-center justify-between gap-2.5 rounded-[var(--radius-sm)] border border-[#d9d0c8] bg-white text-[var(--char)] outline-hidden select-none transition-[border-color,background-color,box-shadow] hover:border-[var(--stone)] hover:bg-[#fcfaf7] focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-1 disabled:cursor-not-allowed disabled:opacity-50 data-popup-open:border-[var(--ember)] data-popup-open:bg-[#fdf9f4] data-popup-open:shadow-[0_0_0_3px_rgba(176,67,42,0.08)]',
           size === 'sm' ? 'min-h-10 px-3 py-1.5 text-xs sm:text-sm font-medium' : 'min-h-11 px-3.5 py-2 text-sm font-medium'
         ),
         className
@@ -95,7 +95,7 @@ export const SelectIcon = React.forwardRef<
   return (
     <BaseSelect.Icon
       ref={ref}
-      className={resolveClassName('inline-flex shrink-0 text-[var(--stone)] ml-1', className)}
+      className={resolveClassName('inline-flex shrink-0 text-[var(--stone)] ml-1 transition-transform duration-150 group-data-popup-open:rotate-180', className)}
       {...props}
     >
       {children || (

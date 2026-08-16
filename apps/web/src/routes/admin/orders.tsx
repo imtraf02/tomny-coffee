@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireAdminAccess } from '../../server/admin-access'
 import { AdminPageShell } from '../admin'
-import { OrdersManager } from '../../components/OrdersManager'
+import { OrdersManager } from '../../components/orders-manager'
 
 export const Route = createFileRoute('/admin/orders')({
   beforeLoad: ({ location }) => requireAdminAccess(location, 'orders'),

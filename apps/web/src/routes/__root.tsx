@@ -1,6 +1,6 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-import { Providers } from '../components/Providers'
-import { BottomFloatingBar } from '../components/BottomFloatingBar'
+import { Providers } from '../components/providers'
+import { BottomFloatingBar } from '../components/bottom-floating-bar'
 import appCss from '../styles.css?url'
 
 export const Route = createRootRoute({

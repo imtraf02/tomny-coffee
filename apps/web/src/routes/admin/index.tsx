@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { requireAdminAccess } from '../../server/admin-access'
-import { AdminOverview } from '../../components/AdminOverview'
+import { AdminOverview } from '../../components/admin-overview'
 import { getFloorPlan, type ReportData } from '../admin'
 
 export const Route = createFileRoute('/admin/')({

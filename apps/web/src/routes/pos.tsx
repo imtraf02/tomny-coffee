@@ -27,7 +27,7 @@ import {
   IconHistory,
   IconAlertCircle,
 } from '@tabler/icons-react'
-import { DraftTools } from '../components/DraftTools'
+import { DraftTools } from '../components/draft-tools'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cacheCatalog, cachedCatalog, deviceId, syncOutbox, type CatalogCategory, type CatalogCombo, type CatalogModifierGroup, type CatalogProduct, type CatalogVariant } from '../client/outbox'
 import { calculateTotal } from '../core/money'
@@ -1053,7 +1053,7 @@ function Pos() {
               </div>
 
               {/* Totals Breakdown */}
-              <div className="ticket-total-breakdown pt-0 border-t-0">
+              <div className="ticket-total-breakdown">
                 <div className="ticket-row subtotal-row">
                   <span>Tạm tính</span>
                   <span className="font-mono tabular-nums font-semibold">{formatMoney(subtotal)}</span>
@@ -1186,7 +1186,7 @@ function Pos() {
           <div className="flex items-start justify-between pb-3 border-b border-[#ede6de]">
             <div>
               <p className="eyebrow text-xs text-[#8c8177] uppercase font-bold tracking-wider">
-                TRA CỨU & QUẢN LÝ ĐƠN HÀNG
+                ĐƠN HÀNG
               </p>
               <Drawer.Title className="text-xl font-bold font-display text-[var(--char)] mt-0.5">
                 {drawerTab === 'serving' ? `${servingOrdersCount} đơn đang phục vụ` : '5 đơn thanh toán gần nhất'}
@@ -1206,15 +1206,15 @@ function Pos() {
                 aria-selected={drawerTab === 'serving'}
                 onClick={() => setDrawerTab('serving')}
                 className={cn(
-                  'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer select-none flex items-center justify-center gap-1.5',
+                  'flex-1 min-w-0 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none flex items-center justify-center gap-1 whitespace-nowrap',
                   drawerTab === 'serving'
                     ? 'bg-white text-[var(--char)] shadow-xs'
                     : 'text-[#61574f] hover:text-[var(--char)]'
                 )}
               >
-                <span className={cn('w-2 h-2 rounded-full bg-[#f59e0b]', servingOrdersCount > 0 && 'animate-pulse')} />
-                <span>Đang phục vụ</span>
-                <span className="px-1.5 py-0.2 rounded-full bg-[#ede6de] font-mono text-[10.5px]">
+                <span className={cn('w-1.5 h-1.5 rounded-full bg-[#f59e0b] shrink-0', servingOrdersCount > 0 && 'animate-pulse')} />
+                <span className="truncate">Đang phục vụ</span>
+                <span className="px-1 rounded-full bg-[#ede6de] font-mono text-[10px] shrink-0">
                   {servingOrdersCount}
                 </span>
               </button>
@@ -1225,15 +1225,15 @@ function Pos() {
                 aria-selected={drawerTab === 'recent'}
                 onClick={() => { setDrawerTab('recent'); void recentPaidQuery.refetch() }}
                 className={cn(
-                  'flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer select-none flex items-center justify-center gap-1.5',
+                  'flex-1 min-w-0 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none flex items-center justify-center gap-1 whitespace-nowrap',
                   drawerTab === 'recent'
                     ? 'bg-white text-[var(--char)] shadow-xs'
                     : 'text-[#61574f] hover:text-[var(--char)]'
                 )}
               >
-                <IconHistory size={14} stroke={2} className="text-[#8c8177]" />
-                <span>Gần đây</span>
-                <span className="px-1.5 py-0.2 rounded-full bg-[#ede6de] font-mono text-[10.5px]">
+                <IconHistory size={13} stroke={2} className="text-[#8c8177] shrink-0" />
+                <span className="truncate">Gần đây</span>
+                <span className="px-1 rounded-full bg-[#ede6de] font-mono text-[10px] shrink-0">
                   {recentOrders.length}
                 </span>
               </button>
@@ -1255,12 +1255,13 @@ function Pos() {
                 const isMaking = order.kdsStatus === 'making'
                 const isReady = order.kdsStatus === 'ready'
                 const isNew = order.kdsStatus === 'new'
+                const waitMinutes = Math.floor((Date.now() - order.createdAt) / 60000)
 
                 return (
                   <div
                     key={order.id}
                     className={cn(
-                      'p-3.5 rounded-2xl border bg-white shadow-2xs flex flex-col gap-2.5 transition-all',
+                      'p-4 rounded-2xl border bg-white shadow-2xs flex flex-col gap-2.5 transition-all',
                       isMaking ? 'border-[#3b82f6]/40 bg-[#f8fbff]' : isReady ? 'border-[#22c55e]/40 bg-[#f7fcf8]' : 'border-[#ede6de]'
                     )}
                   >
@@ -1284,13 +1285,13 @@ function Pos() {
                     </div>
 
                     {/* Lines list */}
-                    <div className="grid gap-1 py-1.5 border-y border-[#ede6de]/80 text-xs">
+                    <div className="grid gap-1 py-1 text-xs">
                       {order.lines.map((l) => (
                         <div key={l.id} className="flex justify-between items-start">
                           <div>
                             <strong className="text-[var(--char)]">{l.quantity} × {l.name}</strong>
                             {l.variant && !['Mặc định', 'Phần'].includes(l.variant) && (
-                              <span className="text-[#8c8177] ml-1.5">({l.variant})</span>
+                              <span className="text-[#8c8177]"> · {l.variant}</span>
                             )}
                             {l.modifiers && l.modifiers.length > 0 && (
                               <span className="text-[#a09488] block text-[11px]">
@@ -1304,9 +1305,17 @@ function Pos() {
 
                     {/* Card Actions */}
                     <div className="flex items-center justify-between gap-2 pt-0.5">
-                      <div className="flex items-center gap-1 text-[11px] text-[#8c8177]">
-                        <IconClock size={13} stroke={1.75} />
-                        <span>{new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                      <div className="flex items-center gap-1.5 text-[11px]">
+                        <IconClock size={13} stroke={1.75} className="text-[#8c8177] shrink-0" />
+                        <span className="font-mono font-bold text-[var(--char)]">
+                          {new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        <span className={cn(
+                          'font-semibold',
+                          waitMinutes >= 10 ? 'text-[var(--ember)]' : 'text-[#8c8177]'
+                        )}>
+                          · {waitMinutes < 1 ? 'vừa mới' : `${waitMinutes} phút`}
+                        </span>
                       </div>
 
                       <div className="flex items-center gap-1.5">

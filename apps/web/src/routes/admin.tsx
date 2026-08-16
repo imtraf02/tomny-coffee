@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input'
 import { Field } from '@/components/ui/field'
 import { DateRangePicker } from '@/components/ui/date-picker'
 import { cn } from '@/lib/utils'
-import { StaffPermissionEditor } from '../components/StaffPermissionEditor'
+import { StaffPermissionEditor } from '../components/staff-permission-editor'
 import { requireAdminAccess } from '../server/admin-access'
 
 export const Route = createFileRoute('/admin')({

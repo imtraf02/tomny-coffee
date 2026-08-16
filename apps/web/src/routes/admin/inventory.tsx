@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireAdminAccess } from '../../server/admin-access'
 import { AdminPageShell } from '../admin'
-import { InventoryWorkspace } from '../../components/InventoryWorkspace'
+import { InventoryWorkspace } from '../../components/inventory-workspace'
 
 export const Route = createFileRoute('/admin/inventory')({
   beforeLoad: ({ location }) => requireAdminAccess(location, 'inventory'),

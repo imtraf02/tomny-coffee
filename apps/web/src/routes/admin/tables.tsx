@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { requireAdminAccess } from '../../server/admin-access'
 import { AdminPageShell } from '../admin'
-import { TableManagementWorkspace } from '../../components/TableManagementWorkspace'
+import { TableManagementWorkspace } from '../../components/table-management-workspace'
 
 export const Route = createFileRoute('/admin/tables')({
   beforeLoad: ({ location }) => requireAdminAccess(location, 'tables'),
