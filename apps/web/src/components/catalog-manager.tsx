@@ -403,22 +403,36 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
       {/* Top Header & Navigation Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 w-full min-w-0 max-w-full">
         {/* Tab switcher */}
-        <div className="grid grid-cols-4 sm:flex items-center gap-1 p-1 rounded-xl bg-[#f0ebe4] border border-[#e2dad1] shrink-0 min-w-0 w-full sm:w-auto">
+        <div className="grid grid-cols-4 sm:flex items-center gap-1.5 p-1 rounded-2xl bg-[#f0ebe4] border border-[#e2dad1] shrink-0 min-w-0 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setActiveTab('products')}
             className={cn(
-              'flex items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap min-w-0',
+              'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2 px-1 sm:px-3.5 rounded-xl text-center transition-all cursor-pointer select-none min-w-0',
               activeTab === 'products'
                 ? 'bg-white text-[var(--char)] shadow-xs'
                 : 'text-[#6a5e52] hover:text-[var(--char)] hover:bg-white/50'
             )}
           >
-            <IconCoffee size={15} stroke={1.75} className="shrink-0" />
-            <span className="truncate">Sản phẩm</span>
+            <div className="relative flex items-center justify-center">
+              <IconCoffee
+                size={18}
+                stroke={activeTab === 'products' ? 2 : 1.75}
+                className={cn('shrink-0 transition-colors', activeTab === 'products' ? 'text-[var(--ember)]' : 'text-[#7a6d60]')}
+              />
+              <span
+                className={cn(
+                  'sm:hidden absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full text-[9.5px] font-mono font-bold flex items-center justify-center leading-none',
+                  activeTab === 'products' ? 'bg-[var(--ember)] text-white' : 'bg-[#ded6cc] text-[#61574f]'
+                )}
+              >
+                {allProducts.length}
+              </span>
+            </div>
+            <span className="text-[11px] sm:text-xs font-bold leading-tight truncate">Sản phẩm</span>
             <span
               className={cn(
-                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
+                'hidden sm:inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
                 activeTab === 'products' ? 'bg-[#ede6de] text-[var(--char)]' : 'bg-[#e5ddd3] text-[#716559]'
               )}
             >
@@ -430,17 +444,31 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
             type="button"
             onClick={() => setActiveTab('categories')}
             className={cn(
-              'flex items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap min-w-0',
+              'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2 px-1 sm:px-3.5 rounded-xl text-center transition-all cursor-pointer select-none min-w-0',
               activeTab === 'categories'
                 ? 'bg-white text-[var(--char)] shadow-xs'
                 : 'text-[#6a5e52] hover:text-[var(--char)] hover:bg-white/50'
             )}
           >
-            <IconFolderPlus size={15} stroke={1.75} className="shrink-0" />
-            <span className="truncate">Danh mục</span>
+            <div className="relative flex items-center justify-center">
+              <IconFolderPlus
+                size={18}
+                stroke={activeTab === 'categories' ? 2 : 1.75}
+                className={cn('shrink-0 transition-colors', activeTab === 'categories' ? 'text-[var(--ember)]' : 'text-[#7a6d60]')}
+              />
+              <span
+                className={cn(
+                  'sm:hidden absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full text-[9.5px] font-mono font-bold flex items-center justify-center leading-none',
+                  activeTab === 'categories' ? 'bg-[var(--ember)] text-white' : 'bg-[#ded6cc] text-[#61574f]'
+                )}
+              >
+                {categories.length}
+              </span>
+            </div>
+            <span className="text-[11px] sm:text-xs font-bold leading-tight truncate">Danh mục</span>
             <span
               className={cn(
-                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
+                'hidden sm:inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
                 activeTab === 'categories' ? 'bg-[#ede6de] text-[var(--char)]' : 'bg-[#e5ddd3] text-[#716559]'
               )}
             >
@@ -452,17 +480,31 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
             type="button"
             onClick={() => setActiveTab('modifiers')}
             className={cn(
-              'flex items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap min-w-0',
+              'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2 px-1 sm:px-3.5 rounded-xl text-center transition-all cursor-pointer select-none min-w-0',
               activeTab === 'modifiers'
                 ? 'bg-white text-[var(--char)] shadow-xs'
                 : 'text-[#6a5e52] hover:text-[var(--char)] hover:bg-white/50'
             )}
           >
-            <IconToolsKitchen2 size={15} stroke={1.75} className="shrink-0" />
-            <span className="truncate"><span className="hidden sm:inline">Nhóm </span>Topping</span>
+            <div className="relative flex items-center justify-center">
+              <IconToolsKitchen2
+                size={18}
+                stroke={activeTab === 'modifiers' ? 2 : 1.75}
+                className={cn('shrink-0 transition-colors', activeTab === 'modifiers' ? 'text-[var(--ember)]' : 'text-[#7a6d60]')}
+              />
+              <span
+                className={cn(
+                  'sm:hidden absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full text-[9.5px] font-mono font-bold flex items-center justify-center leading-none',
+                  activeTab === 'modifiers' ? 'bg-[var(--ember)] text-white' : 'bg-[#ded6cc] text-[#61574f]'
+                )}
+              >
+                {catalog.data?.modifierGroups.length ?? 0}
+              </span>
+            </div>
+            <span className="text-[11px] sm:text-xs font-bold leading-tight truncate">Topping</span>
             <span
               className={cn(
-                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
+                'hidden sm:inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
                 activeTab === 'modifiers' ? 'bg-[#ede6de] text-[var(--char)]' : 'bg-[#e5ddd3] text-[#716559]'
               )}
             >
@@ -474,17 +516,31 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
             type="button"
             onClick={() => setActiveTab('combos')}
             className={cn(
-              'flex items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap min-w-0',
+              'flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 py-2 px-1 sm:px-3.5 rounded-xl text-center transition-all cursor-pointer select-none min-w-0',
               activeTab === 'combos'
                 ? 'bg-white text-[var(--char)] shadow-xs'
                 : 'text-[#6a5e52] hover:text-[var(--char)] hover:bg-white/50'
             )}
           >
-            <IconStack2 size={15} stroke={1.75} className="shrink-0" />
-            <span className="truncate">Combo</span>
+            <div className="relative flex items-center justify-center">
+              <IconStack2
+                size={18}
+                stroke={activeTab === 'combos' ? 2 : 1.75}
+                className={cn('shrink-0 transition-colors', activeTab === 'combos' ? 'text-[var(--ember)]' : 'text-[#7a6d60]')}
+              />
+              <span
+                className={cn(
+                  'sm:hidden absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full text-[9.5px] font-mono font-bold flex items-center justify-center leading-none',
+                  activeTab === 'combos' ? 'bg-[var(--ember)] text-white' : 'bg-[#ded6cc] text-[#61574f]'
+                )}
+              >
+                {catalog.data?.combos.length ?? 0}
+              </span>
+            </div>
+            <span className="text-[11px] sm:text-xs font-bold leading-tight truncate">Combo</span>
             <span
               className={cn(
-                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
+                'hidden sm:inline-flex px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
                 activeTab === 'combos' ? 'bg-[#ede6de] text-[var(--char)]' : 'bg-[#e5ddd3] text-[#716559]'
               )}
             >
