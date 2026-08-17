@@ -13,7 +13,7 @@ function resolveClassName<T>(
 export const CheckboxRoot = React.forwardRef<
   React.ComponentRef<typeof BaseCheckbox.Root>,
   React.ComponentPropsWithoutRef<typeof BaseCheckbox.Root>
->(({ className, ...props }, ref) => (
+>(({ className, children, ...props }, ref) => (
   <BaseCheckbox.Root
     ref={ref}
     className={resolveClassName(
@@ -21,7 +21,9 @@ export const CheckboxRoot = React.forwardRef<
       className,
     )}
     {...props}
-  />
+  >
+    {children ?? <CheckboxIndicator />}
+  </BaseCheckbox.Root>
 ))
 CheckboxRoot.displayName = 'CheckboxRoot'
 

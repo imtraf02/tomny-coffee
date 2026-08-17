@@ -38,13 +38,15 @@ export const NumberFieldInput = React.forwardRef<
 ))
 NumberFieldInput.displayName = 'NumberFieldInput'
 
-const numberButtonClasses = 'inline-flex min-w-10 items-center justify-center border-l border-[#d9d0c8] bg-[#f8f6f1] text-[var(--char)] transition-colors hover:bg-[var(--crema)] focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-[-2px] disabled:pointer-events-none disabled:opacity-40'
+const numberButtonBase = 'inline-flex min-w-10 items-center justify-center bg-[#f8f6f1] text-[var(--char)] transition-colors hover:bg-[var(--crema)] focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-[-2px] disabled:pointer-events-none disabled:opacity-40'
+const numberDecrementClasses = `${numberButtonBase} border-r border-[#d9d0c8]`
+const numberIncrementClasses = `${numberButtonBase} border-l border-[#d9d0c8]`
 
 export const NumberFieldIncrement = React.forwardRef<
   React.ComponentRef<typeof BaseNumberField.Increment>,
   React.ComponentPropsWithoutRef<typeof BaseNumberField.Increment>
 >(({ className, ...props }, ref) => (
-  <BaseNumberField.Increment ref={ref} className={resolveClassName(numberButtonClasses, className)} {...props}>
+  <BaseNumberField.Increment ref={ref} className={resolveClassName(numberIncrementClasses, className)} {...props}>
     +
   </BaseNumberField.Increment>
 ))
@@ -54,7 +56,7 @@ export const NumberFieldDecrement = React.forwardRef<
   React.ComponentRef<typeof BaseNumberField.Decrement>,
   React.ComponentPropsWithoutRef<typeof BaseNumberField.Decrement>
 >(({ className, ...props }, ref) => (
-  <BaseNumberField.Decrement ref={ref} className={resolveClassName(numberButtonClasses, className)} {...props}>
+  <BaseNumberField.Decrement ref={ref} className={resolveClassName(numberDecrementClasses, className)} {...props}>
     −
   </BaseNumberField.Decrement>
 ))

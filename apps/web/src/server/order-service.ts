@@ -5,7 +5,7 @@ export type OrderActor = { id: string }
 
 export type DraftSelection = { variantId: string; quantity: number; modifierIds: string[] }
 
-export type DraftCreateInput = { source: 'table' | 'counter' | 'takeaway'; tableId?: string; note: string; lines: DraftSelection[]; idempotencyKey: string }
+export type DraftCreateInput = { source: 'table' | 'counter' | 'takeaway'; tableId?: string; tableIds?: string[]; note: string; lines: DraftSelection[]; idempotencyKey: string }
 export type DraftAddLineInput = { orderId: string; expectedVersion: number; line: DraftSelection }
 export type DraftVoidLineInput = { orderId: string; expectedVersion: number; lineId: string; quantity?: number; reason: string }
 export type DraftNoteInput = { orderId: string; expectedVersion: number; note: string }
@@ -13,17 +13,20 @@ export type DraftMoveInput = { orderId: string; expectedVersion: number; tableId
 export type DraftCancelInput = { orderId: string; expectedVersion: number; reason: string }
 export type DraftSplitInput = { orderId: string; expectedVersion: number; newIdempotencyKey: string; lines: Array<{ lineId: string; quantity: number }> }
 export type DraftMergeInput = { sourceOrderId: string; sourceVersion: number; targetOrderId: string; targetVersion: number }
+export type DraftLinkTableInput = { orderId: string; expectedVersion: number; tableId: string }
+export type DraftUnlinkTableInput = { orderId: string; expectedVersion: number; tableId: string }
 export type CashPayInput = { orderId: string; expectedVersion: number; idempotencyKey: string; deviceId: string; receivedAmount: number; discount?: Discount & { reason: string }; completeKds?: boolean }
-export type ManagerCredentials = { email: string; password: string }
+export type ManagerCredentials = { username?: string; email?: string; password: string }
 export type OrderCancelInput = { orderId: string; expectedVersion?: number; reason: string; manager?: ManagerCredentials }
 
 export type SnapshotLine = { id: string; menuItemId: string; variantId: string; name: string; variant: string; unitPrice: number; quantity: number; lineTotal: number; comboSnapshot: string; modifiers: Array<{ id: string; name: string; priceDelta: number }> }
 export type StoredLine = SnapshotLine & { lineStatus: string }
 export type OrderLineView = { id: string; menuItemId: string; variantId: string; name: string; variant: string; quantity: number; unitPrice: number; lineTotal: number; lineStatus: string; replacedLineId: string | null; cancelReason: string | null; cancelledAt: number | null; cancelledById: string | null; cancelledByName: string | null; approvedById: string | null; approvedByName: string | null; modifiers: Array<{ name: string; priceDelta: number }> }
-export type OrderDetailResult = { id: string; orderCode: string; displayNumber: number; businessDate: string; version: number; source: string; tableId: string | null; tableName: string | null; status: string; kdsStatus: string; subtotal: number; discountAmount: number; total: number; cogs: number; note: string; createdAt: number; updatedAt: number; paidAt: number | null; cancelledAt: number | null; cancelReason: string | null; mergedIntoOrderId: string | null; cashier: string; cancelledByName: string | null; approvedByName: string | null; lines: OrderLineView[]; discounts: Array<Record<string, unknown>>; payment: Record<string, unknown> | null; refund: Record<string, unknown> | null }
+export type OrderDetailResult = { id: string; orderCode: string; displayNumber: number; businessDate: string; version: number; source: string; tableId: string | null; tableName: string | null; tableIds: string[]; tableNames: string[]; status: string; kdsStatus: string; subtotal: number; discountAmount: number; total: number; cogs: number; note: string; createdAt: number; updatedAt: number; paidAt: number | null; cancelledAt: number | null; cancelReason: string | null; mergedIntoOrderId: string | null; cashier: string; cancelledByName: string | null; approvedByName: string | null; lines: OrderLineView[]; discounts: Array<Record<string, unknown>>; payment: Record<string, unknown> | null; refund: Record<string, unknown> | null }
 
 export async function verifyManagerCredentials(db: D1Database, credentials: ManagerCredentials) {
-  const manager = await db.prepare('SELECT id, password_hash AS passwordHash, active FROM users WHERE email = ?').bind(credentials.email.trim().toLowerCase()).first<{ id: string; passwordHash: string; active: number }>()
+  const identifier = (credentials.username || credentials.email || '').trim().toLowerCase()
+  const manager = await db.prepare('SELECT id, password_hash AS passwordHash, active FROM users WHERE (LOWER(username) = ? OR LOWER(email) = ?)').bind(identifier, identifier).first<{ id: string; passwordHash: string; active: number }>()
   if (!manager || !manager.active || !await verifyPassword(credentials.password, manager.passwordHash)) throw new Response('Thông tin đăng nhập quản lý không hợp lệ.', { status: 403 })
   const permission = await db.prepare(`SELECT 1 AS allowed FROM user_permissions up JOIN permissions p ON p.id = up.permission_id WHERE up.user_id = ? AND p.code = 'orders.cancel.paid.approve'`).bind(manager.id).first()
   if (!permission) throw new Response('Tài khoản này không có quyền duyệt hủy và hoàn tiền.', { status: 403 })
@@ -31,11 +34,35 @@ export async function verifyManagerCredentials(db: D1Database, credentials: Mana
 }
 
 export async function listDrafts(db: D1Database, tableId: string | null) {
-  const rows = await db.prepare(`SELECT o.id, o.order_code AS orderCode, o.display_number AS displayNumber, o.business_date AS businessDate, o.source, o.table_id AS tableId, o.note, o.status, o.version, o.subtotal, o.total, o.created_at AS createdAt, o.updated_at AS updatedAt, u.display_name AS cashier FROM orders o JOIN users u ON u.id = o.created_by WHERE o.status = 'draft' AND EXISTS (SELECT 1 FROM order_lines l WHERE l.order_id = o.id AND l.line_status = 'active') ${tableId ? 'AND o.table_id = ?' : ''} ORDER BY o.updated_at DESC`).bind(...(tableId ? [tableId] : [])).all()
+  const rows = await db.prepare(`
+    SELECT o.id, o.order_code AS orderCode, o.display_number AS displayNumber, o.business_date AS businessDate, o.source,
+      o.table_id AS tableId, t.name AS tableName, z.name AS zoneName, o.note, o.status, o.version,
+      o.subtotal, o.total, o.created_at AS createdAt, o.updated_at AS updatedAt, u.display_name AS cashier,
+      (SELECT GROUP_CONCAT(t2.id, ',') FROM order_tables ot2 JOIN "tables" t2 ON t2.id = ot2.table_id WHERE ot2.order_id = o.id ORDER BY ot2.is_primary DESC, ot2.linked_at ASC) AS tableIdsStr,
+      (SELECT GROUP_CONCAT(t2.name, '+') FROM order_tables ot2 JOIN "tables" t2 ON t2.id = ot2.table_id WHERE ot2.order_id = o.id ORDER BY ot2.is_primary DESC, ot2.linked_at ASC) AS tableNamesStr
+    FROM orders o
+    LEFT JOIN "tables" t ON t.id = o.table_id
+    LEFT JOIN zones z ON z.id = t.zone_id
+    JOIN users u ON u.id = o.created_by
+    WHERE o.status = 'draft'
+      AND EXISTS (SELECT 1 FROM order_lines l WHERE l.order_id = o.id AND l.line_status = 'active')
+      ${tableId ? "AND EXISTS (SELECT 1 FROM order_tables ot WHERE ot.order_id = o.id AND ot.table_id = ?)" : ''}
+    ORDER BY o.updated_at DESC
+  `).bind(...(tableId ? [tableId] : [])).all()
+
+  const draftRows = rows.results as Array<{ id: string; tableIdsStr?: string | null; tableNamesStr?: string | null; [key: string]: unknown }>
+  const orderIds = draftRows.map((r) => r.id)
+  const linesMap = await readLinesForOrders(db, orderIds, false)
+
   const orders = [] as Array<Record<string, unknown>>
-  for (const row of rows.results as Array<{ id: string; [key: string]: unknown }>) orders.push({ ...row, lines: await readLines(db, row.id, false) })
+  for (const row of draftRows) {
+    const tableIds = row.tableIdsStr ? row.tableIdsStr.split(',') : (row.tableId ? [String(row.tableId)] : [])
+    const tableNames = row.tableNamesStr ? row.tableNamesStr.split('+') : (row.tableName ? [String(row.tableName)] : [])
+    orders.push({ ...row, tableIds, tableNames, lines: linesMap.get(row.id) ?? [] })
+  }
   return orders
 }
+
 
 function businessDate(now = new Date()) {
   const parts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now)
@@ -81,31 +108,82 @@ function insertLine(db: D1Database, orderId: string, line: SnapshotLine, replace
   return statements
 }
 
-export async function readLines(db: D1Database, orderId: string, includeVoided: boolean): Promise<StoredLine[]> {
-  const rows = await db.prepare(`SELECT l.id, l.menu_item_id AS menuItemId, l.variant_id AS variantId, l.name_snapshot AS name, l.variant_snapshot AS variant, l.unit_price AS unitPrice, l.quantity, l.line_total AS lineTotal, l.combo_snapshot AS comboSnapshot, l.line_status AS lineStatus, lm.id AS modifierLineId, lm.modifier_id AS modifierId, lm.name_snapshot AS modifierName, lm.price_delta AS priceDelta FROM order_lines l LEFT JOIN order_line_modifiers lm ON lm.order_line_id = l.id WHERE l.order_id = ? ${includeVoided ? '' : "AND l.line_status = 'active'"} ORDER BY l.rowid`).bind(orderId).all()
-  const map = new Map<string, StoredLine>()
-  for (const row of rows.results as Array<Record<string, unknown>>) {
-    const id = String(row.id)
-    const line = map.get(id) ?? { id, menuItemId: String(row.menuItemId ?? ''), variantId: String(row.variantId ?? ''), name: String(row.name), variant: String(row.variant), unitPrice: Number(row.unitPrice), quantity: Number(row.quantity), lineTotal: Number(row.lineTotal), comboSnapshot: String(row.comboSnapshot ?? '[]'), lineStatus: String(row.lineStatus), modifiers: [] }
-    if (row.modifierLineId) line.modifiers.push({ id: String(row.modifierId ?? row.modifierLineId), name: String(row.modifierName), priceDelta: Number(row.priceDelta) })
-    map.set(id, line)
-  }
-  const rawLines = [...map.values()]
-  if (includeVoided) return rawLines
+export async function readLinesForOrders(db: D1Database, orderIds: string[], includeVoided: boolean): Promise<Map<string, StoredLine[]>> {
+  const result = new Map<string, StoredLine[]>()
+  if (!orderIds.length) return result
+  for (const id of orderIds) result.set(id, [])
 
-  const consolidated = new Map<string, StoredLine>()
-  for (const line of rawLines) {
-    const modKey = line.modifiers.map((m) => m.id).sort().join(',')
-    const key = `${line.variantId}::${modKey}`
-    const existing = consolidated.get(key)
-    if (existing) {
-      existing.quantity += line.quantity
-      existing.lineTotal += line.lineTotal
-    } else {
-      consolidated.set(key, { ...line })
+  const placeholders = orderIds.map(() => '?').join(',')
+  const rows = await db.prepare(`
+    SELECT l.order_id AS orderId, l.id, l.menu_item_id AS menuItemId, l.variant_id AS variantId,
+           l.name_snapshot AS name, l.variant_snapshot AS variant, l.unit_price AS unitPrice,
+           l.quantity, l.line_total AS lineTotal, l.combo_snapshot AS comboSnapshot,
+           l.line_status AS lineStatus, lm.id AS modifierLineId, lm.modifier_id AS modifierId,
+           lm.name_snapshot AS modifierName, lm.price_delta AS priceDelta
+    FROM order_lines l
+    LEFT JOIN order_line_modifiers lm ON lm.order_line_id = l.id
+    WHERE l.order_id IN (${placeholders}) ${includeVoided ? '' : "AND l.line_status = 'active'"}
+    ORDER BY l.rowid
+  `).bind(...orderIds).all()
+
+  const rawLinesByOrder = new Map<string, Map<string, StoredLine>>()
+  for (const id of orderIds) rawLinesByOrder.set(id, new Map())
+
+  for (const row of rows.results as Array<Record<string, unknown>>) {
+    const orderId = String(row.orderId)
+    const lineMap = rawLinesByOrder.get(orderId)
+    if (!lineMap) continue
+    const lineId = String(row.id)
+    const line = lineMap.get(lineId) ?? {
+      id: lineId,
+      menuItemId: String(row.menuItemId ?? ''),
+      variantId: String(row.variantId ?? ''),
+      name: String(row.name),
+      variant: String(row.variant),
+      unitPrice: Number(row.unitPrice),
+      quantity: Number(row.quantity),
+      lineTotal: Number(row.lineTotal),
+      comboSnapshot: String(row.comboSnapshot ?? '[]'),
+      lineStatus: String(row.lineStatus),
+      modifiers: [],
     }
+    if (row.modifierLineId) {
+      line.modifiers.push({
+        id: String(row.modifierId ?? row.modifierLineId),
+        name: String(row.modifierName),
+        priceDelta: Number(row.priceDelta),
+      })
+    }
+    lineMap.set(lineId, line)
   }
-  return [...consolidated.values()]
+
+  for (const [orderId, lineMap] of rawLinesByOrder.entries()) {
+    const rawLines = [...lineMap.values()]
+    if (includeVoided) {
+      result.set(orderId, rawLines)
+      continue
+    }
+    const consolidated = new Map<string, StoredLine>()
+    for (const line of rawLines) {
+      const modKey = line.modifiers.map((m) => m.id).sort().join(',')
+      const key = `${line.variantId}::${modKey}`
+      const existing = consolidated.get(key)
+      if (existing) {
+        existing.quantity += line.quantity
+        existing.lineTotal += line.lineTotal
+      } else {
+        consolidated.set(key, { ...line })
+      }
+    }
+    result.set(orderId, [...consolidated.values()])
+  }
+
+  return result
+}
+
+export async function readLines(db: D1Database, orderId: string, includeVoided: boolean): Promise<StoredLine[]> {
+  const map = await readLinesForOrders(db, [orderId], includeVoided)
+  return map.get(orderId) ?? []
 }
 
 async function refreshTotals(db: D1Database, orderId: string, expectedVersion: number, now: number) {
@@ -126,7 +204,7 @@ async function ensureTableAvailable(db: D1Database, tableId: string) {
   const table = await db.prepare('SELECT id, status_override AS statusOverride, active FROM "tables" WHERE id = ?').bind(tableId).first<{ id: string; statusOverride: string | null; active: number }>()
   if (!table || !table.active) throw new Response('Bàn không tồn tại hoặc đã ngừng sử dụng.', { status: 400 })
   if (table.statusOverride === 'dat_truoc') throw new Response('Bàn đang được đặt trước.', { status: 409 })
-  const occupied = await db.prepare("SELECT 1 FROM orders o JOIN order_lines l ON l.order_id = o.id WHERE o.table_id = ? AND o.status = 'draft' AND l.line_status = 'active' LIMIT 1").bind(tableId).first()
+  const occupied = await db.prepare("SELECT 1 FROM order_tables ot JOIN orders o ON o.id = ot.order_id JOIN order_lines l ON l.order_id = o.id WHERE ot.table_id = ? AND o.status = 'draft' AND l.line_status = 'active' LIMIT 1").bind(tableId).first()
   if (occupied) throw new Response('Bàn này đã có ticket đang mở.', { status: 409 })
 }
 
@@ -139,14 +217,25 @@ async function cloneLine(db: D1Database, orderId: string, line: StoredLine, quan
   return insertLine(db, orderId, cloned, replacedLineId)
 }
 
-export type DraftCreateResult = { id: string; orderCode: string; displayNumber: number; version: number; tableId: string | null; subtotal: number; total: number; lines: SnapshotLine[]; duplicate?: boolean }
+export type DraftCreateResult = { id: string; orderCode: string; displayNumber: number; version: number; tableId: string | null; tableIds: string[]; subtotal: number; total: number; lines: SnapshotLine[]; duplicate?: boolean }
 
 export async function createDraft(db: D1Database, actor: OrderActor, input: DraftCreateInput): Promise<DraftCreateResult> {
-  if (input.source === 'table' && !input.tableId) throw new Response('Đơn tại bàn cần chọn bàn.', { status: 400 })
-  if (input.source !== 'table' && input.tableId) throw new Response('Chỉ đơn tại bàn mới gắn bàn.', { status: 400 })
+  // Normalise: accept either tableId (single) or tableIds (multiple); tableIds takes precedence
+  const resolvedTableIds = input.source === 'table'
+    ? (input.tableIds?.length ? input.tableIds : (input.tableId ? [input.tableId] : []))
+    : []
+  if (input.source === 'table' && !resolvedTableIds.length) throw new Response('Đơn tại bàn cần chọn bàn.', { status: 400 })
+  if (input.source !== 'table' && resolvedTableIds.length) throw new Response('Chỉ đơn tại bàn mới gắn bàn.', { status: 400 })
+  // Deduplicate
+  const uniqueTableIds = [...new Set(resolvedTableIds)]
+  const primaryTableId = uniqueTableIds[0] ?? null
+
   const duplicate = await db.prepare('SELECT id, order_code AS orderCode, display_number AS displayNumber, version FROM orders WHERE idempotency_key = ?').bind(input.idempotencyKey).first<{ id: string; orderCode: string; displayNumber: number; version: number }>()
-  if (duplicate) return { ...duplicate, duplicate: true, tableId: null, subtotal: 0, total: 0, lines: [] }
-  if (input.tableId) await ensureTableAvailable(db, input.tableId)
+  if (duplicate) return { ...duplicate, duplicate: true, tableId: null, tableIds: [], subtotal: 0, total: 0, lines: [] }
+
+  // Validate all tables available (sequential to give clear per-table errors)
+  for (const tableId of uniqueTableIds) await ensureTableAvailable(db, tableId)
+
   const number = await reserveOrderNumber(db)
   const orderId = crypto.randomUUID()
 
@@ -165,12 +254,17 @@ export async function createDraft(db: D1Database, actor: OrderActor, input: Draf
   const lines = await Promise.all([...consolidatedInputs.values()].map((line) => resolveLine(db, line)))
   const subtotal = lines.reduce((sum, line) => sum + line.lineTotal, 0)
   const now = Date.now()
-  const statements: D1PreparedStatement[] = [db.prepare('INSERT INTO orders (id, order_code, business_date, display_number, idempotency_key, source, table_id, note, status, version, subtotal, discount_amount, total, cogs, created_by, paid_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'draft\', 1, ?, 0, ?, 0, ?, NULL, ?, ?)').bind(orderId, number.orderCode, number.businessDate, number.displayNumber, input.idempotencyKey, input.source, input.tableId ?? null, input.note, subtotal, subtotal, actor.id, now, now)]
+  const statements: D1PreparedStatement[] = [db.prepare('INSERT INTO orders (id, order_code, business_date, display_number, idempotency_key, source, table_id, note, status, version, subtotal, discount_amount, total, cogs, created_by, paid_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, \'draft\', 1, ?, 0, ?, 0, ?, NULL, ?, ?)').bind(orderId, number.orderCode, number.businessDate, number.displayNumber, input.idempotencyKey, input.source, primaryTableId, input.note, subtotal, subtotal, actor.id, now, now)]
+  // Insert all tables into order_tables junction
+  for (let i = 0; i < uniqueTableIds.length; i++) {
+    statements.push(db.prepare('INSERT INTO order_tables (order_id, table_id, is_primary, linked_at) VALUES (?, ?, ?, ?)').bind(orderId, uniqueTableIds[i], i === 0 ? 1 : 0, now))
+  }
   for (const line of lines) statements.push(...insertLine(db, orderId, line))
-  statements.push(audit(db, actor.id, orderId, 'draft_created', { source: input.source, tableId: input.tableId, displayNumber: number.displayNumber }, now))
+  statements.push(audit(db, actor.id, orderId, 'draft_created', { source: input.source, tableIds: uniqueTableIds, displayNumber: number.displayNumber }, now))
   await db.batch(statements)
-  return { id: orderId, orderCode: number.orderCode, displayNumber: number.displayNumber, version: 1, tableId: input.tableId ?? null, subtotal, total: subtotal, lines }
+  return { id: orderId, orderCode: number.orderCode, displayNumber: number.displayNumber, version: 1, tableId: primaryTableId, tableIds: uniqueTableIds, subtotal, total: subtotal, lines }
 }
+
 
 export async function addLine(db: D1Database, actor: OrderActor, input: DraftAddLineInput) {
   const order = await getDraft(db, input.orderId, input.expectedVersion)
@@ -178,7 +272,7 @@ export async function addLine(db: D1Database, actor: OrderActor, input: DraftAdd
   const existingLines = await readLines(db, order.id, false)
   const sortedModIds = (mods: { id: string }[]) => mods.map((m) => m.id).sort().join(',')
   const inputModIds = (input.line.modifierIds ?? []).slice().sort().join(',')
-  const match = existingLines.find((l) => l.variantId === line.variantId && sortedModIds(l.modifiers) === inputModIds)
+  const match = existingLines.find((l) => l.variantId === line.variantId && sortedModIds(l.modifiers) === inputModIds && l.unitPrice === line.unitPrice && l.name === line.name)
 
   if (match) {
     const newQty = match.quantity + line.quantity
@@ -215,11 +309,11 @@ export async function voidLine(db: D1Database, actor: OrderActor, input: DraftVo
     ]
     await db.batch(statements)
   } else {
-    const newQty = line.quantity - quantity
-    const newLineTotal = line.unitPrice * newQty
+    const replacement = await cloneLine(db, order.id, line, line.quantity - quantity, line.id)
     const statements: D1PreparedStatement[] = [
-      db.prepare("UPDATE order_lines SET quantity = ?, line_total = ? WHERE id = ? AND order_id = ? AND line_status = 'active'").bind(newQty, newLineTotal, line.id, order.id),
-      audit(db, actor.id, order.id, 'line_quantity_decreased', { lineId: line.id, quantity, remaining: newQty, reason: input.reason }, now),
+      db.prepare("UPDATE order_lines SET line_status = 'cancelled', cancel_reason = ?, cancelled_by = ?, cancelled_at = ? WHERE id = ? AND order_id = ? AND line_status = 'active'").bind(input.reason, actor.id, now, line.id, order.id),
+      ...replacement,
+      audit(db, actor.id, order.id, 'line_voided', { lineId: line.id, quantity, remaining: line.quantity - quantity, reason: input.reason }, now),
     ]
     await db.batch(statements)
   }
@@ -246,9 +340,16 @@ export async function moveDraft(db: D1Database, actor: OrderActor, input: DraftM
   const order = await getDraft(db, input.orderId, input.expectedVersion)
   if (order.tableId !== input.tableId) await ensureTableAvailable(db, input.tableId)
   const now = Date.now()
-  await db.batch([db.prepare("UPDATE orders SET table_id = ?, source = 'table', version = version + 1, updated_at = ? WHERE id = ? AND status = 'draft' AND version = ?").bind(input.tableId, now, order.id, order.version), audit(db, actor.id, order.id, 'moved', { tableId: input.tableId }, now)])
+  await db.batch([
+    db.prepare("UPDATE orders SET table_id = ?, source = 'table', version = version + 1, updated_at = ? WHERE id = ? AND status = 'draft' AND version = ?").bind(input.tableId, now, order.id, order.version),
+    // Move primary entry in junction: delete old primary, insert new one (non-primary entries for grouped tables stay)
+    db.prepare('DELETE FROM order_tables WHERE order_id = ? AND table_id = ? AND is_primary = 1').bind(order.id, order.tableId ?? input.tableId),
+    db.prepare('INSERT OR IGNORE INTO order_tables (order_id, table_id, is_primary, linked_at) VALUES (?, ?, 1, ?)').bind(order.id, input.tableId, now),
+    audit(db, actor.id, order.id, 'moved', { fromTableId: order.tableId, toTableId: input.tableId }, now),
+  ])
   return { id: order.id, version: order.version + 1, tableId: input.tableId }
 }
+
 
 export async function cancelDraft(db: D1Database, actor: OrderActor, input: DraftCancelInput) {
   const order = await getDraft(db, input.orderId, input.expectedVersion)
@@ -267,7 +368,10 @@ export async function splitDraft(db: D1Database, actor: OrderActor, input: Draft
   const number = await reserveOrderNumber(db)
   const targetId = crypto.randomUUID()
   const now = Date.now()
-  const statements: D1PreparedStatement[] = [db.prepare("INSERT INTO orders (id, order_code, business_date, display_number, idempotency_key, source, table_id, note, status, version, subtotal, discount_amount, total, cogs, created_by, paid_at, created_at, updated_at) SELECT ?, ?, ?, ?, ?, source, table_id, note, 'draft', 1, 0, 0, 0, 0, created_by, NULL, ?, ? FROM orders WHERE id = ?").bind(targetId, number.orderCode, number.businessDate, number.displayNumber, input.newIdempotencyKey, now, now, source.id)]
+  const statements: D1PreparedStatement[] = [
+    db.prepare("INSERT INTO orders (id, order_code, business_date, display_number, idempotency_key, source, table_id, note, status, version, subtotal, discount_amount, total, cogs, created_by, paid_at, created_at, updated_at) SELECT ?, ?, ?, ?, ?, source, table_id, note, 'draft', 1, 0, 0, 0, 0, created_by, NULL, ?, ? FROM orders WHERE id = ?").bind(targetId, number.orderCode, number.businessDate, number.displayNumber, input.newIdempotencyKey, now, now, source.id),
+    db.prepare('INSERT INTO order_tables (order_id, table_id, is_primary, linked_at) SELECT ?, table_id, is_primary, ? FROM order_tables WHERE order_id = ?').bind(targetId, now, source.id),
+  ]
   for (const line of activeLines) {
     const moved = requested.get(line.id) ?? 0
     if (!moved) continue
@@ -293,7 +397,12 @@ export async function mergeDrafts(db: D1Database, actor: OrderActor, input: Draf
   for (const line of activeLines) {
     statements.push(db.prepare("UPDATE order_lines SET line_status = 'transferred' WHERE id = ? AND line_status = 'active'").bind(line.id), ...await cloneLine(db, target.id, line, line.quantity, line.id))
   }
-  statements.push(db.prepare("UPDATE orders SET status = 'cancelled', merged_into_order_id = ?, cancel_reason = 'merged', cancelled_by = ?, cancelled_at = ?, version = version + 1, updated_at = ? WHERE id = ? AND status = 'draft' AND version = ?").bind(target.id, actor.id, now, now, source.id, source.version), audit(db, actor.id, target.id, 'merged', { sourceOrderId: source.id }, now), audit(db, actor.id, source.id, 'merged_into', { targetOrderId: target.id }, now))
+  statements.push(
+    db.prepare("UPDATE orders SET status = 'cancelled', merged_into_order_id = ?, cancel_reason = 'merged', cancelled_by = ?, cancelled_at = ?, version = version + 1, updated_at = ? WHERE id = ? AND status = 'draft' AND version = ?").bind(target.id, actor.id, now, now, source.id, source.version),
+    db.prepare('DELETE FROM order_tables WHERE order_id = ?').bind(source.id),
+    audit(db, actor.id, target.id, 'merged', { sourceOrderId: source.id }, now),
+    audit(db, actor.id, source.id, 'merged_into', { targetOrderId: target.id }, now),
+  )
   await db.batch(statements)
   const subtotal = await refreshTotals(db, target.id, target.version, now)
   return { id: target.id, version: target.version + 1, subtotal, total: subtotal }
@@ -362,7 +471,7 @@ export async function cancelOrder(db: D1Database, actor: OrderActor, input: Orde
   if (input.expectedVersion !== undefined && input.expectedVersion !== order.version) throw new Response('Ticket vừa được cập nhật. Tải lại trước khi hủy.', { status: 409 })
   let approvedBy: string | null = null
   if (order.status === 'paid') {
-    if (!input.manager?.email || !input.manager.password) throw new Response('Hủy đơn đã thanh toán cần quản lý đăng nhập lại để duyệt.', { status: 403 })
+    if ((!input.manager?.username && !input.manager?.email) || !input.manager.password) throw new Response('Hủy đơn đã thanh toán cần quản lý đăng nhập lại để duyệt.', { status: 403 })
     approvedBy = await verifyManagerCredentials(db, input.manager)
   }
   const now = Date.now()
@@ -378,4 +487,52 @@ export async function cancelOrder(db: D1Database, actor: OrderActor, input: Orde
   const result = await db.batch(statements)
   if (result[0]?.meta.changes !== 1) throw new Response('Ticket vừa được cập nhật. Tải lại trước khi hủy.', { status: 409 })
   return { id: order.id, status: 'cancelled' }
+}
+
+export async function linkTable(db: D1Database, actor: OrderActor, input: DraftLinkTableInput) {
+  const order = await getDraft(db, input.orderId, input.expectedVersion)
+  if (order.source !== 'table') throw new Response('Chỉ đơn tại bàn mới gộp thêm bàn được.', { status: 400 })
+  // Check if already linked
+  const existing = await db.prepare('SELECT 1 FROM order_tables WHERE order_id = ? AND table_id = ?').bind(order.id, input.tableId).first()
+  if (existing) throw new Response('Bàn này đã nằm trong đơn.', { status: 409 })
+  await ensureTableAvailable(db, input.tableId)
+  const now = Date.now()
+  await db.batch([
+    db.prepare('INSERT INTO order_tables (order_id, table_id, is_primary, linked_at) VALUES (?, ?, 0, ?)').bind(order.id, input.tableId, now),
+    db.prepare("UPDATE orders SET version = version + 1, updated_at = ? WHERE id = ? AND status = 'draft' AND version = ?").bind(now, order.id, order.version),
+    audit(db, actor.id, order.id, 'table_linked', { tableId: input.tableId }, now),
+  ])
+  // Fetch updated table list
+  const tables = await db.prepare('SELECT ot.table_id AS tableId, t.name AS tableName FROM order_tables ot JOIN "tables" t ON t.id = ot.table_id WHERE ot.order_id = ? ORDER BY ot.is_primary DESC, ot.linked_at ASC').bind(order.id).all<{ tableId: string; tableName: string }>()
+  return { id: order.id, version: order.version + 1, tableIds: tables.results.map((r) => r.tableId), tableNames: tables.results.map((r) => r.tableName) }
+}
+
+export async function unlinkTable(db: D1Database, actor: OrderActor, input: DraftUnlinkTableInput) {
+  const order = await getDraft(db, input.orderId, input.expectedVersion)
+  const currentTables = await db.prepare('SELECT table_id AS tableId, is_primary AS isPrimary FROM order_tables WHERE order_id = ? ORDER BY is_primary DESC, linked_at ASC').bind(order.id).all<{ tableId: string; isPrimary: number }>()
+  if (!currentTables.results.some((r) => r.tableId === input.tableId)) throw new Response('Bàn này không nằm trong đơn.', { status: 400 })
+  if (currentTables.results.length <= 1) throw new Response('Đơn phải có ít nhất một bàn.', { status: 400 })
+  // Check if order has lines — if so, only allow unlinking non-primary secondary tables (MVP constraint)
+  const hasLines = await db.prepare("SELECT 1 FROM order_lines WHERE order_id = ? AND line_status = 'active' LIMIT 1").bind(order.id).first()
+  const isRemovingPrimary = currentTables.results.find((r) => r.tableId === input.tableId)?.isPrimary === 1
+  if (hasLines && isRemovingPrimary) throw new Response('Không thể bớt bàn chính khi đơn đã có món. Dùng tính năng Tách ticket nếu cần.', { status: 409 })
+  const now = Date.now()
+  const statements: D1PreparedStatement[] = [
+    db.prepare('DELETE FROM order_tables WHERE order_id = ? AND table_id = ?').bind(order.id, input.tableId),
+    db.prepare("UPDATE orders SET version = version + 1, updated_at = ? WHERE id = ? AND status = 'draft' AND version = ?").bind(now, order.id, order.version),
+    audit(db, actor.id, order.id, 'table_unlinked', { tableId: input.tableId }, now),
+  ]
+  // If removing primary, promote next table to primary and update orders.table_id
+  if (isRemovingPrimary) {
+    const nextPrimary = currentTables.results.find((r) => r.tableId !== input.tableId)
+    if (nextPrimary) {
+      statements.push(
+        db.prepare('UPDATE order_tables SET is_primary = 1 WHERE order_id = ? AND table_id = ?').bind(order.id, nextPrimary.tableId),
+        db.prepare('UPDATE orders SET table_id = ? WHERE id = ?').bind(nextPrimary.tableId, order.id),
+      )
+    }
+  }
+  await db.batch(statements)
+  const updatedTables = await db.prepare('SELECT ot.table_id AS tableId, t.name AS tableName FROM order_tables ot JOIN "tables" t ON t.id = ot.table_id WHERE ot.order_id = ? ORDER BY ot.is_primary DESC, ot.linked_at ASC').bind(order.id).all<{ tableId: string; tableName: string }>()
+  return { id: order.id, version: order.version + 1, tableIds: updatedTables.results.map((r) => r.tableId), tableNames: updatedTables.results.map((r) => r.tableName) }
 }

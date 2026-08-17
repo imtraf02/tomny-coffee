@@ -10,6 +10,7 @@
     {
       "binding": "DB",
       "database_name": "tomny-coffee",
+      "database_id": "11544fc6-98f3-4042-befe-f8c012ae9b1d",
       "migrations_dir": "./drizzle"
     }
   ],

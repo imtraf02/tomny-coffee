@@ -12,6 +12,7 @@ import {
   IconUser,
   IconAlertCircle,
   IconCash,
+  IconPrinter,
 } from '@tabler/icons-react'
 import { Drawer } from './ui/drawer'
 import { AppSelect, type SelectOption } from './ui/select'
@@ -19,7 +20,11 @@ import { Button, SecondaryButton } from './ui/button'
 import { Input } from './ui/input'
 import { Field } from './ui/field'
 import { DateRangePicker } from './ui/date-picker'
+import { Skeleton, SkeletonList, SkeletonTable } from './ui/skeleton'
+import { ReceiptModal } from './receipt-modal'
+import type { ReceiptOrderData } from './receipt-document'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/lib/use-mobile'
 
 type OrderStatus = 'draft' | 'paid' | 'cancelled'
 type OrderRow = {
@@ -89,6 +94,7 @@ const PAGE_SIZE_OPTIONS: SelectOption[] = [
 ]
 
 export function OrdersManager({ canManage = false }: { canManage?: boolean }) {
+  const isMobile = useIsMobile()
   const client = useQueryClient()
   const [status, setStatus] = useState<'all' | OrderStatus>('all')
   const [search, setSearch] = useState('')
@@ -98,8 +104,9 @@ export function OrdersManager({ canManage = false }: { canManage?: boolean }) {
   const [pageSize, setPageSize] = useState(10)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [cancelReason, setCancelReason] = useState('')
-  const [managerEmail, setManagerEmail] = useState('')
+  const [managerUsername, setManagerUsername] = useState('')
   const [managerPassword, setManagerPassword] = useState('')
+  const [receiptToPrint, setReceiptToPrint] = useState<ReceiptOrderData | null>(null)
 
   const ordersQuery = useQuery({
     queryKey: ['orders-history', status, search, from, to],
@@ -136,7 +143,7 @@ export function OrdersManager({ canManage = false }: { canManage?: boolean }) {
           orderId: selectedId,
           expectedVersion: detailQuery.data.version,
           reason: cancelReason,
-          manager: detailQuery.data.status === 'paid' ? { email: managerEmail, password: managerPassword } : undefined,
+          manager: detailQuery.data.status === 'paid' ? { username: managerUsername, password: managerPassword } : undefined,
         }),
       })
       const body = await response.json().catch(() => ({})) as { message?: string }
@@ -144,7 +151,7 @@ export function OrdersManager({ canManage = false }: { canManage?: boolean }) {
     },
     onSuccess: async () => {
       setCancelReason('')
-      setManagerEmail('')
+      setManagerUsername('')
       setManagerPassword('')
       setSelectedId(null)
       await client.invalidateQueries({ queryKey: ['orders-history'] })
@@ -246,7 +253,20 @@ export function OrdersManager({ canManage = false }: { canManage?: boolean }) {
         ))}
       </div>
 
-      {ordersQuery.isLoading && <p className="floor-feedback">Đang tải danh sách đơn hàng…</p>}
+      {ordersQuery.isLoading && (
+        <SkeletonTable
+          columns={[
+            { width: '20%' },
+            { width: '18%' },
+            { width: '18%' },
+            { width: '16%', align: 'right' },
+            { width: '14%', align: 'center', cellClassName: 'w-20' },
+            { width: '14%', align: 'right', cellClassName: 'w-28' },
+          ]}
+          rows={6}
+          label="Đang tải danh sách đơn hàng…"
+        />
+      )}
       {ordersQuery.isError && <p className="floor-feedback is-error">{ordersQuery.error.message}</p>}
 
       {!ordersQuery.isLoading && !rows.length && (
@@ -441,38 +461,90 @@ export function OrdersManager({ canManage = false }: { canManage?: boolean }) {
       )}
 
       {/* Order Detail Drawer */}
-      <Drawer.Root open={Boolean(selectedId)} onOpenChange={(open) => { if (!open) { setSelectedId(null); setCancelReason(''); setManagerEmail(''); setManagerPassword('') } }}>
-        <Drawer.Content className="admin-detail-drawer max-w-lg w-full">
-          <div className="flex items-start justify-between pb-4 border-b border-[#ede6de]">
+      <Drawer.Root open={Boolean(selectedId)} onOpenChange={(open) => { if (!open) { setSelectedId(null); setCancelReason(''); setManagerUsername(''); setManagerPassword('') } }} swipeDirection={isMobile ? 'down' : 'right'}>
+        <Drawer.Content direction={isMobile ? 'bottom' : 'right'} className={cn(isMobile ? 'w-full max-h-[92dvh] p-0' : 'admin-detail-drawer max-w-lg w-full')}>
+          <Drawer.Header className="px-5 pt-3 pb-3 border-b border-[#ede6de]">
             <div>
               <p className="eyebrow text-xs text-[#8c8177] uppercase font-bold tracking-wider">CHI TIẾT ĐƠN HÀNG</p>
-              <Drawer.Title className="text-xl font-bold font-display text-[var(--char)]">
+              <Drawer.Title className="text-xl font-bold font-display text-[var(--char)] mt-0.5">
                 {detailQuery.data ? (detailQuery.data.displayNumber ? `Đơn #${String(detailQuery.data.displayNumber).padStart(3, '0')}` : `Đơn #${detailQuery.data.orderCode}`) : 'Đơn hàng'}
               </Drawer.Title>
             </div>
-            <Drawer.Close aria-label="Đóng" className="dialog-close-btn">
-              <IconX size={18} stroke={1.75} />
-            </Drawer.Close>
-          </div>
+          </Drawer.Header>
 
-          {detailQuery.isLoading && <p className="floor-feedback mt-4">Đang tải chi tiết…</p>}
-          {detailQuery.isError && <p className="floor-feedback is-error mt-4">{detailQuery.error.message}</p>}
+          {detailQuery.isLoading && (
+            <div className="px-5 py-4 grid gap-3" role="status" aria-busy="true">
+              <span className="sr-only">Đang tải chi tiết…</span>
+              <div className="p-3.5 bg-[#fffdfa] border border-[#ede6de] rounded-xl flex justify-between items-center" aria-hidden="true">
+                <div className="flex flex-col gap-2">
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-3 w-14" />
+                </div>
+              </div>
+              <Skeleton className="h-3 w-28" />
+              <SkeletonList rows={3} label="" />
+              <Skeleton className="h-28 w-full rounded-xl" />
+              <Skeleton className="h-12 w-full rounded-xl" />
+            </div>
+          )}
+          {detailQuery.isError && <p className="floor-feedback is-error px-5 py-4">{detailQuery.error.message}</p>}
 
           {detailQuery.data && (
-            <OrderDetailComponent
-              order={detailQuery.data}
-              canManage={canManage}
-              cancelReason={cancelReason}
-              setCancelReason={setCancelReason}
-              managerEmail={managerEmail}
-              setManagerEmail={setManagerEmail}
-              managerPassword={managerPassword}
-              setManagerPassword={setManagerPassword}
-              cancel={{ mutate: () => cancel.mutate(), isPending: cancel.isPending, isError: cancel.isError, error: cancel.error instanceof Error ? cancel.error : null }}
-            />
+            <Drawer.Body className="px-5 py-4">
+              <OrderDetailComponent
+                order={detailQuery.data}
+                canManage={canManage}
+                cancelReason={cancelReason}
+                setCancelReason={setCancelReason}
+                managerUsername={managerUsername}
+                setManagerUsername={setManagerUsername}
+                managerPassword={managerPassword}
+                setManagerPassword={setManagerPassword}
+                cancel={{ mutate: () => cancel.mutate(), isPending: cancel.isPending, isError: cancel.isError, error: cancel.error instanceof Error ? cancel.error : null }}
+                onPrintReceipt={() => {
+                  const detail = detailQuery.data
+                  if (!detail) return
+                  setReceiptToPrint({
+                    orderCode: detail.orderCode,
+                    tableName: detail.tableName,
+                    source: detail.source,
+                    cashier: detail.cashier,
+                    createdAt: detail.createdAt,
+                    items: detail.lines.map((l) => ({
+                      id: l.id,
+                      name: l.name,
+                      variantName: l.variant,
+                      quantity: l.quantity,
+                      unitPrice: l.unitPrice,
+                      totalPrice: l.lineTotal,
+                      modifiers: l.modifiers,
+                    })),
+                    subtotal: detail.subtotal,
+                    discountAmount: detail.discountAmount,
+                    total: detail.total,
+                    paymentMethod: detail.payment ? 'Tiền mặt' : undefined,
+                    receivedAmount: detail.payment?.receivedAmount,
+                    changeAmount: detail.payment?.changeAmount,
+                  })
+                }}
+              />
+            </Drawer.Body>
           )}
         </Drawer.Content>
       </Drawer.Root>
+
+      {/* Printable Receipt Modal */}
+      <ReceiptModal
+        open={Boolean(receiptToPrint)}
+        onOpenChange={(open) => { if (!open) setReceiptToPrint(null) }}
+        order={receiptToPrint}
+        title="Hóa đơn thanh toán"
+        description="In lại biên lai 80mm hoặc xuất ảnh/PDF."
+      />
     </section>
   )
 }
@@ -482,24 +554,26 @@ function OrderDetailComponent({
   canManage,
   cancelReason,
   setCancelReason,
-  managerEmail,
-  setManagerEmail,
+  managerUsername,
+  setManagerUsername,
   managerPassword,
   setManagerPassword,
   cancel,
+  onPrintReceipt,
 }: {
   order: OrderDetail
   canManage: boolean
   cancelReason: string
   setCancelReason: (value: string) => void
-  managerEmail: string
-  setManagerEmail: (value: string) => void
+  managerUsername: string
+  setManagerUsername: (value: string) => void
   managerPassword: string
   setManagerPassword: (value: string) => void
   cancel: CancelMutation
+  onPrintReceipt?: () => void
 }) {
   return (
-    <div className="grid gap-4 mt-4">
+    <div className="grid gap-4">
       {/* Meta Card */}
       <div className="p-3.5 bg-[#fffdfa] border border-[#ede6de] rounded-xl flex justify-between items-center text-xs">
         <div>
@@ -513,6 +587,19 @@ function OrderDetailComponent({
           <span className="font-data text-[10.5px] text-[#8c8177]">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
         </div>
       </div>
+
+      {/* Action: Print Receipt */}
+      {onPrintReceipt && (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={onPrintReceipt}
+          className="w-full flex items-center justify-center gap-1.5 font-bold"
+        >
+          <IconPrinter size={16} stroke={1.75} />
+          <span>In hóa đơn / Lưu ảnh (80mm)</span>
+        </Button>
+      )}
 
       {/* Items Breakdown */}
       <div>
@@ -589,7 +676,7 @@ function OrderDetailComponent({
           <div>
             <h4 className="text-xs font-bold text-[var(--ember)] uppercase tracking-wider">Hủy đơn & Hoàn tiền</h4>
             <p className="text-[11px] text-[#8c8177] mt-0.5">
-              {order.status === 'paid' ? 'Đơn đã thanh toán yêu cầu xác thực email và mật khẩu của Quản lý để duyệt hoàn tiền.' : 'Hủy đơn hàng chưa thanh toán.'}
+              {order.status === 'paid' ? 'Đơn đã thanh toán yêu cầu xác thực tên đăng nhập và mật khẩu của Quản lý để duyệt hoàn tiền.' : 'Hủy đơn hàng chưa thanh toán.'}
             </p>
           </div>
 
@@ -607,13 +694,12 @@ function OrderDetailComponent({
           {order.status === 'paid' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <Field.Root>
-                <Field.Label className="text-xs font-semibold text-[var(--char)]">Email Quản lý</Field.Label>
+                <Field.Label className="text-xs font-semibold text-[var(--char)]">Tên đăng nhập Quản lý</Field.Label>
                 <Input
                   size="sm"
-                  type="email"
-                  value={managerEmail}
-                  onChange={(e) => setManagerEmail(e.target.value)}
-                  placeholder="manager@tomny.coffee"
+                  value={managerUsername}
+                  onChange={(e) => setManagerUsername(e.target.value)}
+                  placeholder="VD: admin"
                   className="bg-white mt-1"
                 />
               </Field.Root>
@@ -641,7 +727,7 @@ function OrderDetailComponent({
           <Button
             variant="danger"
             size="md"
-            disabled={cancel.isPending || cancelReason.trim().length < 3 || (order.status === 'paid' && (!managerEmail.trim() || !managerPassword))}
+            disabled={cancel.isPending || cancelReason.trim().length < 3 || (order.status === 'paid' && (!managerUsername.trim() || !managerPassword))}
             onClick={() => cancel.mutate()}
             className="w-full mt-1 font-bold text-xs"
           >

@@ -16,7 +16,7 @@ function AdminHubPage() {
     queryFn: async () => {
       const today = new Date().toISOString().slice(0, 10)
       const response = await fetch(`/api/reports?from=${today}&to=${today}`)
-      const body = await response.json().catch(() => ({})) as { message?: string }
+      const body = (await response.json().catch(() => ({}))) as { message?: string }
       if (!response.ok) throw new Error(body.message ?? 'Không tải được báo cáo.')
       return body as ReportData
     },
@@ -26,8 +26,11 @@ function AdminHubPage() {
     <div className="admin-screen min-h-screen w-full min-w-0 max-w-full overflow-x-hidden">
       <main className="admin-main max-w-7xl mx-auto w-full min-w-0 max-w-full px-3 sm:px-6 pt-3 sm:pt-6 pb-28 sm:pb-24 overflow-x-hidden">
         <AdminOverview report={reportQuery.data} floor={floorPlan.data} />
-        {reportQuery.isError && <p className="floor-feedback is-error mt-4">{reportQuery.error.message}</p>}
+        {reportQuery.isError && (
+          <p className="floor-feedback is-error mt-4">{reportQuery.error.message}</p>
+        )}
       </main>
     </div>
   )
 }
+

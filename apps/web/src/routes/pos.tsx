@@ -1,13 +1,15 @@
 import { Dialog } from '@/components/ui/dialog'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Tabs } from '@/components/ui/tabs'
 import { Drawer } from '@/components/ui/drawer'
 import { AppSelect, type SelectOption } from '@/components/ui/select'
 import { Button, PrimaryButton, SecondaryButton } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Field } from '@/components/ui/field'
+import { Textarea } from '@/components/ui/textarea'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useIsMobile } from '@/lib/use-mobile'
+import { useQuery } from '@tanstack/react-query'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -17,69 +19,50 @@ import {
   IconPlus,
   IconMinus,
   IconCash,
-  IconPrinter,
   IconCheck,
   IconReceipt,
-  IconToolsKitchen2,
-  IconClock,
-  IconPlayerPlay,
-  IconCircleCheck,
-  IconHistory,
-  IconAlertCircle,
+  IconArrowsJoin,
+  IconArrowLeft,
 } from '@tabler/icons-react'
 import { DraftTools } from '../components/draft-tools'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { ReceiptModal } from '@/components/receipt-modal'
+import type { ReceiptOrderData } from '@/components/receipt-document'
 import { cacheCatalog, cachedCatalog, deviceId, syncOutbox, type CatalogCategory, type CatalogCombo, type CatalogModifierGroup, type CatalogProduct, type CatalogVariant } from '../client/outbox'
 import { calculateTotal } from '../core/money'
 import { readSession } from '../server/session'
 
 type OrderItem = { id: string; menuItemId: string; variantId: string; name: string; variant: string; price: number; quantity: number; modifierIds: string[]; modifiers?: Array<{ id: string; name: string; priceDelta?: number }> }
 type TableStatus = 'trong' | 'dang_phuc_vu' | 'dat_truoc' | 'can_don'
-type OperationalTable = { id: string; zoneId: string | null; name: string; shape: 'square' | 'round'; status: TableStatus }
+type OperationalTable = { id: string; zoneId: string | null; name: string; shape: 'square' | 'round'; status: TableStatus; activeOrderId?: string | null }
 type FloorPlan = { zones: { id: string; name: string }[]; tables: OperationalTable[] }
 type PosCatalog = { categories: CatalogCategory[]; products: CatalogProduct[]; modifierGroups?: CatalogModifierGroup[]; combos?: CatalogCombo[]; cachedAt: number; fromCache: boolean }
-type DraftOrder = { id: string; orderCode: string; displayNumber?: number; version: number; tableId: string | null; total: number; lines: Array<{ id: string; menuItemId: string; variantId: string; name: string; variant: string; unitPrice: number; quantity: number; modifiers: Array<{ id: string; name?: string; priceDelta?: number }> }> }
-
-type KdsQueueOrder = {
-  id: string
-  orderCode: string
-  source: 'counter' | 'takeaway' | 'table'
-  tableId: string | null
-  tableName: string | null
-  zoneName: string | null
-  status: 'draft' | 'paid'
-  kdsStatus: 'new' | 'making' | 'ready' | 'served'
-  kdsUpdatedAt: number | null
-  createdAt: number
-  updatedAt: number
-  note: string | null
-  cashier: string
-  lines: Array<{
-    id: string
-    name: string
-    variant: string
-    quantity: number
-    unitPrice: number
-    lineTotal: number
-    modifiers?: Array<{ name: string; priceDelta: number }>
-  }>
-}
-
-type RecentPaidOrder = {
+type DraftOrder = {
   id: string
   orderCode: string
   displayNumber?: number
-  source: 'counter' | 'takeaway' | 'table'
-  tableName: string | null
-  status: 'paid'
-  subtotal: number
-  discountAmount: number
+  version: number
+  source?: 'table' | 'counter' | 'takeaway'
+  tableId: string | null
+  tableName?: string | null
+  tableIds?: string[]
+  tableNames?: string[]
+  zoneName?: string | null
+  subtotal?: number
   total: number
-  createdAt: number
-  updatedAt: number
-  paidAt: number | null
-  cashier: string
-  version?: number
+  createdAt?: number
+  updatedAt?: number
+  cashier?: string
+  lines: Array<{
+    id: string
+    menuItemId: string
+    variantId: string
+    name: string
+    variant: string
+    unitPrice: number
+    quantity: number
+    modifiers: Array<{ id: string; name?: string; priceDelta?: number }>
+  }>
 }
 
 const formatMoney = (value: number) => new Intl.NumberFormat('vi-VN').format(value) + '₫'
@@ -131,23 +114,33 @@ export const Route = createFileRoute('/pos')({
 
 function Pos() {
   const { user } = Route.useRouteContext()
+  const isMobile = useIsMobile()
   const [categoryId, setCategoryId] = useState<string>('all')
   const [searchQuery, setSearchQuery] = useState('')
   const [items, setItems] = useState<OrderItem[]>([])
   const [configuringProduct, setConfiguringProduct] = useState<CatalogProduct | null>(null)
+  const [cachedConfigProduct, setCachedConfigProduct] = useState<CatalogProduct | null>(null)
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [selectedModifierIds, setSelectedModifierIds] = useState<string[]>([])
+  const [configQuantity, setConfigQuantity] = useState(1)
+
+  useEffect(() => {
+    if (configuringProduct) {
+      setCachedConfigProduct(configuringProduct)
+    }
+  }, [configuringProduct])
   const [paid, setPaid] = useState(false)
+  const [lastPaidReceiptData, setLastPaidReceiptData] = useState<ReceiptOrderData | null>(null)
+  const [reprintReceiptData, setReprintReceiptData] = useState<ReceiptOrderData | null>(null)
   const [confirmPayOpen, setConfirmPayOpen] = useState(false)
   const [completeKdsOnPay, setCompleteKdsOnPay] = useState(true)
   const [paymentMessage, setPaymentMessage] = useState('')
-  const [lastPaidTotal, setLastPaidTotal] = useState(0)
   const [lastPaidOrder, setLastPaidOrder] = useState<{ id: string; version: number } | null>(null)
   const [refunding, setRefunding] = useState(false)
-  const [refundForm, setRefundForm] = useState({ reason: '', email: '', password: '' })
+  const [refundForm, setRefundForm] = useState({ reason: '', username: '', password: '' })
   const [refundMessage, setRefundMessage] = useState('')
   const [refundError, setRefundError] = useState('')
-  const [orderContext, setOrderContext] = useState<'counter' | 'takeaway' | 'table'>('counter')
+  const [orderContext, setOrderContext] = useState<'counter' | 'takeaway' | 'table'>('table')
   const [selectedTable, setSelectedTable] = useState<OperationalTable | null>(null)
   const [activeDraft, setActiveDraft] = useState<DraftOrder | null>(null)
   const [draftLoading, setDraftLoading] = useState(false)
@@ -157,101 +150,26 @@ function Pos() {
   const [discountType, setDiscountType] = useState<'percent' | 'fixed'>('percent')
   const [discountValue, setDiscountValue] = useState(0)
   const [discountReason, setDiscountReason] = useState('')
-  const [mobileTab, setMobileTab] = useState<'menu' | 'ticket'>('menu')
+  const [showDiscountForm, setShowDiscountForm] = useState(false)
+  const [mobileView, setMobileView] = useState<'main' | 'ticket'>('main')
 
-  // Unified Drawer State (1 Touchpoint on Header, 2 Tabs inside)
-  const [servingDrawerOpen, setServingDrawerOpen] = useState(false)
-  const [drawerTab, setDrawerTab] = useState<'serving' | 'recent'>('serving')
-  const [selectedRecentDetailId, setSelectedRecentDetailId] = useState<string | null>(null)
-  const [cancelReason, setCancelReason] = useState('')
-  const [managerEmail, setManagerEmail] = useState('')
-  const [managerPassword, setManagerPassword] = useState('')
+  // Group mode: multi-select tables to create a grouped order
+  const [isGroupMode, setIsGroupMode] = useState(false)
+  const [pendingGroupTableIds, setPendingGroupTableIds] = useState<string[]>([])
 
-  const catalog = useQuery({ queryKey: ['menu-catalog'], queryFn: getPosCatalog })
-  const floorPlan = useQuery({ queryKey: ['floor-plan', 'operational'], queryFn: getOperationalFloorPlan, refetchInterval: 3000 })
+  const catalog = useQuery({ queryKey: ['menu-catalog'], queryFn: getPosCatalog, staleTime: 5 * 60 * 1000 })
+  const floorPlan = useQuery({ queryKey: ['floor-plan', 'operational'], queryFn: getOperationalFloorPlan, refetchInterval: 3500 })
 
-  // Live Serving Queue Query (Tab 1: Đang phục vụ)
-  const servingQueue = useQuery({
-    queryKey: ['pos-serving-queue'],
+  // Active Unpaid Orders Query (for open drafts in table section)
+  const activeDraftsQuery = useQuery({
+    queryKey: ['pos-active-drafts'],
     queryFn: async () => {
-      const response = await fetch('/api/kds')
-      if (!response.ok) return { orders: [] as KdsQueueOrder[] }
-      const data = await response.json() as { orders: KdsQueueOrder[] }
+      const response = await fetch('/api/orders/drafts')
+      if (!response.ok) return { orders: [] as DraftOrder[] }
+      const data = (await response.json()) as { orders: DraftOrder[] }
       return { orders: data.orders ?? [] }
     },
     refetchInterval: 3000,
-  })
-
-  // Recent 5 Paid Orders Query (Tab 2: Gần đây - sorted by absolute timestamp)
-  const recentPaidQuery = useQuery({
-    queryKey: ['pos-recent-paid'],
-    queryFn: async () => {
-      const response = await fetch('/api/orders/history?status=paid')
-      if (!response.ok) return { orders: [] as RecentPaidOrder[] }
-      const data = await response.json() as { orders: RecentPaidOrder[] }
-      return { orders: (data.orders ?? []).slice(0, 5) }
-    },
-  })
-
-  // Detail Query for Selected Recent Order
-  const recentDetailQuery = useQuery({
-    queryKey: ['pos-recent-detail', selectedRecentDetailId],
-    enabled: Boolean(selectedRecentDetailId),
-    queryFn: async () => {
-      const response = await fetch(`/api/orders/history?id=${selectedRecentDetailId}`)
-      const body = await response.json().catch(() => ({})) as { message?: string; order?: any }
-      if (!response.ok || !body.order) throw new Error(body.message ?? 'Không tải được chi tiết đơn.')
-      return body.order
-    },
-  })
-
-  // Quick Status Update for Live Serving Queue (Mini-KDS action)
-  const updateKdsStatus = useMutation({
-    mutationFn: async ({ orderId, status }: { orderId: string; status: 'making' | 'ready' | 'served' }) => {
-      const response = await fetch('/api/kds', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'setStatus', orderId, status }),
-      })
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({})) as { message?: string }
-        throw new Error(body.message ?? 'Không thể cập nhật trạng thái pha chế.')
-      }
-      return response.json()
-    },
-    onSuccess: async () => {
-      await servingQueue.refetch()
-      await floorPlan.refetch()
-    },
-  })
-
-  // Manager Cancellation & Refund Mutation from Detail View
-  const cancelOrderMutation = useMutation({
-    mutationFn: async () => {
-      if (!selectedRecentDetailId || !recentDetailQuery.data) throw new Error('Chưa chọn đơn.')
-      const response = await fetch('/api/orders/history', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          action: 'cancel',
-          orderId: selectedRecentDetailId,
-          expectedVersion: recentDetailQuery.data.version,
-          reason: cancelReason.trim(),
-          manager: { email: managerEmail.trim(), password: managerPassword },
-        }),
-      })
-      const body = await response.json().catch(() => ({})) as { message?: string }
-      if (!response.ok) throw new Error(body.message ?? 'Không thể hủy đơn.')
-    },
-    onSuccess: async () => {
-      setCancelReason('')
-      setManagerEmail('')
-      setManagerPassword('')
-      setSelectedRecentDetailId(null)
-      await recentPaidQuery.refetch()
-      await servingQueue.refetch()
-      await floorPlan.refetch()
-    },
   })
 
   const subtotal = useMemo(() => items.reduce((sum, item) => sum + item.price * item.quantity, 0), [items])
@@ -333,6 +251,8 @@ function Pos() {
     setDraftLoading(true); setOperationMessage('')
     try {
       if (!activeDraft) {
+        // In normal mode: single tableId. Group mode creates draft with tableIds[] but only reachable
+        // after confirmGroupMode(), so here selectedTable is always the primary table.
         const response = await fetch('/api/orders/drafts', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -394,7 +314,8 @@ function Pos() {
           ]
         })
       }
-      await floorPlan.refetch()
+      void floorPlan.refetch()
+      void activeDraftsQuery.refetch()
     } catch (error) { setOperationMessage(error instanceof Error ? error.message : 'Không thể thêm món vào ticket.') }
     finally { setDraftLoading(false) }
   }
@@ -405,9 +326,21 @@ function Pos() {
       void addVariant(product, variants[0])
       return
     }
+    const defaultVariant = variants[0] ?? null
+    const defaultMods: string[] = []
+    if (defaultVariant?.modifierGroupIds?.length) {
+      for (const gid of defaultVariant.modifierGroupIds) {
+        const group = (catalog.data?.modifierGroups ?? []).find((g) => g.id === gid)
+        if (group && group.minSelections === 1 && group.maxSelections === 1) {
+          const firstActiveMod = group.modifiers.find((m) => m.active)
+          if (firstActiveMod) defaultMods.push(firstActiveMod.id)
+        }
+      }
+    }
+    setConfigQuantity(1)
     setConfiguringProduct(product)
-    setSelectedVariantId(variants[0]?.id ?? null)
-    setSelectedModifierIds([])
+    setSelectedVariantId(defaultVariant?.id ?? null)
+    setSelectedModifierIds(defaultMods)
   }
 
   async function changeQuantity(lineId: string, change: number) {
@@ -451,33 +384,68 @@ function Pos() {
         setItems(nextItems)
       }
       void floorPlan.refetch()
+      void activeDraftsQuery.refetch()
     } catch (error) { setOperationMessage(error instanceof Error ? error.message : 'Không thể hủy món.') }
     finally { setDraftLoading(false) }
   }
+
+  function selectDraftOrder(draft: DraftOrder, autoOpenPay = false) {
+    hydratingDraft.current = true
+    setActiveDraft(draft)
+    setItems(consolidateDraftLines(draft.lines))
+    const nextContext = (draft.source as 'table' | 'counter' | 'takeaway') || (draft.tableId ? 'table' : 'counter')
+    setOrderContext(nextContext)
+
+    if (draft.tableId && floorPlan.data?.tables) {
+      const targetTable = floorPlan.data.tables.find((t) => t.id === draft.tableId)
+      if (targetTable) {
+        setSelectedTable(targetTable)
+        if (targetTable.zoneId) setSelectedZoneId(targetTable.zoneId)
+      }
+    } else {
+      setSelectedTable(null)
+    }
+
+    setMobileView('ticket')
+    setTimeout(() => {
+      hydratingDraft.current = false
+      if (autoOpenPay) {
+        setConfirmPayOpen(true)
+      }
+    }, 100)
+  }
+
 
   async function openTable(table: OperationalTable) {
     if (table.status === 'dat_truoc' || table.status === 'can_don') {
       setOperationMessage(table.status === 'dat_truoc' ? 'Bàn đang được giữ cho khách đặt trước.' : 'Bàn cần được xử lý trước khi nhận đơn.')
       return
     }
-    setDraftLoading(true); setOperationMessage('')
+    setDraftLoading(true)
+    setOperationMessage('')
     try {
       const response = await fetch(`/api/orders/drafts?tableId=${encodeURIComponent(table.id)}`)
       if (!response.ok) throw new Error('Không tải được đơn đang mở của bàn.')
       const body = await response.json() as { orders: DraftOrder[] }
       const draft = body.orders[0]
       if (draft) {
-        hydratingDraft.current = true
-        setActiveDraft(draft)
-        setItems(consolidateDraftLines(draft.lines))
-        setOrderContext('table'); setSelectedTable(table)
-        setTimeout(() => { hydratingDraft.current = false }, 100)
+        selectDraftOrder({ ...draft, tableId: table.id, tableName: table.name, source: 'table' })
       } else {
-        setSelectedTable(table); setOrderContext('table'); setActiveDraft(null); setItems([]); setDiscountValue(0); setDiscountReason('')
+        setSelectedTable(table)
+        setOrderContext('table')
+        setActiveDraft(null)
+        setItems([])
+        setDiscountValue(0)
+        setDiscountReason('')
       }
+      setMobileView('ticket')
       void floorPlan.refetch()
-    } catch (error) { setOperationMessage(error instanceof Error ? error.message : 'Không thể mở bàn.') }
-    finally { setDraftLoading(false) }
+      void activeDraftsQuery.refetch()
+    } catch (error) {
+      setOperationMessage(error instanceof Error ? error.message : 'Không thể mở bàn.')
+    } finally {
+      setDraftLoading(false)
+    }
   }
 
   async function reloadDraftForTable(tableId: string, expectedOrderId: string) {
@@ -498,14 +466,13 @@ function Pos() {
   }
 
   async function switchContext(nextContext: 'counter' | 'takeaway' | 'table') {
-    if (nextContext === 'table') {
-      setOrderContext('table')
-      if (tablesInZone.length && !selectedTable) {
-        const first = tablesInZone.find((t) => t.status === 'dang_phuc_vu') ?? tablesInZone.find((t) => t.status === 'trong') ?? tablesInZone[0]
-        if (first) void openTable(first)
-      }
-    } else {
-      setOrderContext(nextContext); setSelectedTable(null); setActiveDraft(null); setItems([]); setDiscountValue(0); setDiscountReason('')
+    setOrderContext(nextContext)
+    if (nextContext !== 'table') {
+      setSelectedTable(null)
+      setActiveDraft(null)
+      setItems([])
+      setDiscountValue(0)
+      setDiscountReason('')
     }
     void floorPlan.refetch()
   }
@@ -515,11 +482,76 @@ function Pos() {
     if (target) await openTable(target)
   }
 
+  function exitGroupMode() {
+    setIsGroupMode(false)
+    setPendingGroupTableIds([])
+  }
+
+  async function confirmGroupMode() {
+    if (pendingGroupTableIds.length < 2) return
+    setDraftLoading(true)
+    setOperationMessage('')
+    try {
+      const primaryTableId = pendingGroupTableIds[0]
+      const primaryTable = floorPlan.data?.tables.find((t) => t.id === primaryTableId)
+      const response = await fetch('/api/orders/drafts', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'create', source: 'table', tableIds: pendingGroupTableIds, idempotencyKey: crypto.randomUUID(), lines: [] }),
+      })
+      const body = await response.json().catch(() => ({})) as { message?: string } & Partial<DraftOrder>
+      if (!response.ok) throw new Error((body as { message?: string }).message ?? 'Không thể tạo ticket gộp bàn.')
+      const draft = body as DraftOrder
+      // Enrich draft with multi-table names
+      const tableNames = pendingGroupTableIds.map((id) => floorPlan.data?.tables.find((t) => t.id === id)?.name ?? id)
+      setActiveDraft({ ...draft, tableIds: pendingGroupTableIds, tableNames })
+      setItems([])
+      setDiscountValue(0)
+      setDiscountReason('')
+      if (primaryTable) {
+        setSelectedTable(primaryTable)
+        setOrderContext('table')
+        if (primaryTable.zoneId) setSelectedZoneId(primaryTable.zoneId)
+      }
+      exitGroupMode()
+      setMobileView('ticket')
+      void floorPlan.refetch()
+      void activeDraftsQuery.refetch()
+    } catch (error) {
+      setOperationMessage(error instanceof Error ? error.message : 'Không thể tạo ticket.')
+    } finally {
+      setDraftLoading(false)
+    }
+  }
+
   async function completeCashPayment(options?: { completeKds?: boolean }) {
     if (!items.length) return
     const idempotencyKey = crypto.randomUUID()
     const finalize = (message: string) => {
-      setLastPaidTotal(total)
+      const receiptSnapshot: ReceiptOrderData = {
+        orderCode: activeDraft?.orderCode || `ORD-${Date.now().toString().slice(-6)}`,
+        tableName: selectedTable?.name || (orderContext === 'table' ? 'Bàn phục vụ' : null),
+        source: orderContext,
+        cashier: user.displayName || user.email,
+        createdAt: new Date(),
+        items: items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          variantName: item.variant,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          totalPrice: (item.price + (item.modifiers?.reduce((sum, m) => sum + (m.priceDelta ?? 0), 0) ?? 0)) * item.quantity,
+          modifiers: item.modifiers,
+        })),
+        subtotal,
+        discountAmount,
+        discountReason: discountReason || undefined,
+        total,
+        paymentMethod: 'Tiền mặt',
+        receivedAmount: total,
+        changeAmount: 0,
+      }
+      setLastPaidReceiptData(receiptSnapshot)
       setPaymentMessage(message)
       setLastPaidOrder(activeDraft ? { id: activeDraft.id, version: activeDraft.version + 1 } : null)
       setItems([])
@@ -529,7 +561,7 @@ function Pos() {
       setDiscountValue(0)
       setDiscountReason('')
       setPaid(true)
-      setMobileTab('menu')
+      setMobileView('main')
     }
     if (activeDraft) {
       try {
@@ -549,8 +581,7 @@ function Pos() {
         if (!response.ok) throw new Error((await response.json().catch(() => ({ message: 'Không thể thanh toán ticket.' })) as { message?: string }).message ?? 'Không thể thanh toán ticket.')
         finalize('Đơn đã thanh toán và hoàn tất.')
         await floorPlan.refetch()
-        await servingQueue.refetch()
-        await recentPaidQuery.refetch()
+        await activeDraftsQuery.refetch()
         return
       } catch (error) { setOperationMessage(error instanceof Error ? error.message : 'Không thể thanh toán ticket.'); return }
     }
@@ -564,86 +595,95 @@ function Pos() {
       const response = await fetch('/api/orders/history', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ action: 'cancel', orderId: lastPaidOrder.id, expectedVersion: lastPaidOrder.version, reason: refundForm.reason.trim(), manager: { email: refundForm.email.trim(), password: refundForm.password } }),
+        body: JSON.stringify({ action: 'cancel', orderId: lastPaidOrder.id, expectedVersion: lastPaidOrder.version, reason: refundForm.reason.trim(), manager: { username: refundForm.username.trim(), password: refundForm.password } }),
       })
       const body = await response.json().catch(() => ({})) as { message?: string }
       if (!response.ok) throw new Error(body.message ?? 'Không thể hủy đơn đã thanh toán.')
       setRefundMessage('Đã hủy toàn bộ đơn và hoàn tiền mặt đầy đủ. Quản lý xác nhận hoàn tiền.')
-      setRefundForm({ reason: '', email: '', password: '' })
+      setRefundForm({ reason: '', username: '', password: '' })
       await floorPlan.refetch()
-      await servingQueue.refetch()
-      await recentPaidQuery.refetch()
+      await activeDraftsQuery.refetch()
     } catch (error) { setRefundError(error instanceof Error ? error.message : 'Không thể hủy đơn đã thanh toán.') }
   }
 
-  const configVariants = configuringProduct?.variants.filter((variant) => variant.active) ?? []
+  const activeConfigProduct = configuringProduct ?? cachedConfigProduct
+  const configVariants = activeConfigProduct?.variants.filter((variant) => variant.active) ?? []
   const selectedConfigVariant = configVariants.find((variant) => variant.id === selectedVariantId)
   const configGroups = (catalog.data?.modifierGroups ?? []).filter((group) => selectedConfigVariant?.modifierGroupIds?.includes(group.id))
   const configValid = configGroups.every((group) => { const count = group.modifiers.filter((modifier) => selectedModifierIds.includes(modifier.id)).length; return count >= group.minSelections && count <= group.maxSelections })
 
-  const servingOrdersCount = servingQueue.data?.orders?.length ?? 0
-  const recentOrders = recentPaidQuery.data?.orders ?? []
+  const singleUnitPrice = (selectedConfigVariant?.price ?? 0) + selectedModifierIds.reduce((sum, modId) => {
+    const mod = configGroups.flatMap((g) => g.modifiers).find((m) => m.id === modId)
+    return sum + (mod?.priceDelta ?? 0)
+  }, 0)
+  const totalConfigPrice = singleUnitPrice * configQuantity
+
+  function handleSelectVariant(variantId: string) {
+    setSelectedVariantId(variantId)
+    const variant = configVariants.find((v) => v.id === variantId)
+    if (!variant) return
+    const supportedGroupIds = new Set(variant.modifierGroupIds ?? [])
+    const nextModifierGroups = (catalog.data?.modifierGroups ?? []).filter((g) => supportedGroupIds.has(g.id))
+
+    setSelectedModifierIds((current) => {
+      const retained = current.filter((id) => nextModifierGroups.some((g) => g.modifiers.some((m) => m.id === id)))
+      for (const g of nextModifierGroups) {
+        if (g.minSelections === 1 && g.maxSelections === 1) {
+          const hasInGroup = retained.some((id) => g.modifiers.some((m) => m.id === id))
+          if (!hasInGroup) {
+            const firstActive = g.modifiers.find((m) => m.active)
+            if (firstActive) retained.push(firstActive.id)
+          }
+        }
+      }
+      return retained
+    })
+  }
+
+  function handleToggleModifier(group: CatalogModifierGroup, modifierId: string) {
+    setSelectedModifierIds((current) => {
+      const isSingle = group.maxSelections === 1
+      const groupModIds = new Set(group.modifiers.map((m) => m.id))
+      const isAlreadySelected = current.includes(modifierId)
+
+      if (isSingle) {
+        if (isAlreadySelected) {
+          return group.minSelections === 0 ? current.filter((id) => id !== modifierId) : current
+        }
+        return [...current.filter((id) => !groupModIds.has(id)), modifierId]
+      }
+
+      if (isAlreadySelected) {
+        return current.filter((id) => id !== modifierId)
+      } else {
+        const currentSelectedInGroup = current.filter((id) => groupModIds.has(id)).length
+        if (group.maxSelections && currentSelectedInGroup >= group.maxSelections) {
+          return current
+        }
+        return [...current, modifierId]
+      }
+    })
+  }
+
+  async function handleAddConfiguredProduct() {
+    if (!activeConfigProduct || !selectedConfigVariant || !configValid || draftLoading) return
+    const qty = Math.max(1, configQuantity)
+    for (let i = 0; i < qty; i++) {
+      await addVariant(activeConfigProduct, selectedConfigVariant, selectedModifierIds)
+    }
+    setConfiguringProduct(null)
+    setSelectedVariantId(null)
+    setSelectedModifierIds([])
+    setConfigQuantity(1)
+  }
+
+  const activeDrafts = activeDraftsQuery.data?.orders ?? []
+  const activeDraftsCount = activeDrafts.length
 
   return (
     <div className="pos-screen">
-      {/* Fast Tab Switcher for Tablet & Mobile (< 1024px) */}
-      <div className="pos-mobile-nav" role="tablist" aria-label="Chuyển đổi màn hình POS">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mobileTab === 'menu'}
-          className={cn('pos-mobile-nav-btn', mobileTab === 'menu' && 'is-active')}
-          onClick={() => setMobileTab('menu')}
-        >
-          <IconCoffee size={16} stroke={1.75} />
-          <span>Thực đơn món</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mobileTab === 'ticket'}
-          className={cn('pos-mobile-nav-btn', mobileTab === 'ticket' && 'is-active')}
-          onClick={() => setMobileTab('ticket')}
-        >
-          <IconReceipt size={16} stroke={1.75} />
-          <span>Đơn hàng {totalQuantity > 0 ? `(${totalQuantity})` : ''}</span>
-          {totalQuantity > 0 && <span className="pos-mobile-nav-badge font-mono tabular-nums">{formatMoney(total)}</span>}
-        </button>
-      </div>
-
       <main className="pos-main">
-        <section className={cn('menu-pane', mobileTab !== 'menu' && 'is-hidden-mobile')} aria-labelledby="pos-title">
-          {/* Header Title Bar with Espresso Anchor & Unified Drawer Button (1 Touchpoint) */}
-          <div className="pos-title-row flex items-center justify-between gap-2.5">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span className="px-2 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-[var(--espresso)] text-[var(--crema)] shadow-2xs">
-                  QUẦY THU NGÂN
-                </span>
-                <span className="text-xs text-[#8c8177] hidden sm:inline">· Điểm bán POS</span>
-              </div>
-              <h1 id="pos-title" className="text-xl sm:text-2xl font-bold font-display text-[var(--char)] mt-0.5">
-                {activeDraft?.displayNumber
-                  ? `Đơn #${String(activeDraft.displayNumber).padStart(3, '0')}`
-                  : activeDraft
-                  ? 'Ticket đang mở'
-                  : 'Tạo đơn mới'}
-              </h1>
-            </div>
-
-            {/* Single Touchpoint: Opens Unified Order Drawer (Serving Queue + Recent History) */}
-            <button
-              type="button"
-              onClick={() => setServingDrawerOpen(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-[#fff8eb] text-[#b45309] border border-[#fde68a] hover:bg-[#fef3c7] shadow-2xs active:scale-[0.98] transition-all cursor-pointer select-none shrink-0"
-              aria-label="Xem đơn đang phục vụ và lịch sử gần đây"
-            >
-              <span className={cn('w-2 h-2 rounded-full bg-[#f59e0b] shrink-0', servingOrdersCount > 0 && 'animate-pulse')} />
-              <span className="font-mono tabular-nums font-extrabold">{servingOrdersCount}</span>
-              <span>đang phục vụ</span>
-            </button>
-          </div>
-
+        <section className={cn('menu-pane', mobileView === 'ticket' && 'is-hidden-mobile')} aria-label="Khu vực chọn bàn và món">
           {/* Service Context & Table Picker */}
           <section className="pos-table-section" aria-label="Chọn hình thức & bàn phục vụ">
             <Tabs.Root
@@ -693,18 +733,41 @@ function Pos() {
                       aria-label="Chọn khu vực"
                       triggerClassName="bg-white min-w-28 text-xs"
                     />
+                    <button
+                      type="button"
+                      className={cn('pos-group-mode-toggle', isGroupMode && 'is-active')}
+                      onClick={() => { if (isGroupMode) exitGroupMode(); else setIsGroupMode(true) }}
+                      title="Gộp bàn"
+                    >
+                      <IconArrowsJoin size={13} stroke={2.5} />
+                      <span>{isGroupMode ? 'Huỷ' : 'Gộp bàn'}</span>
+                    </button>
                   </div>
                 )}
               </div>
 
               <Tabs.Panel value="table" className="pos-context-panel mt-1">
                 {!!floorPlan.data?.zones.length && (
-                  <div className="pos-tables-wrap">
+                  <div className={cn('pos-tables-wrap', isGroupMode && 'is-group-mode')}>
                     {tablesInZone.length ? (
                       <div className="pos-tables-list" role="list">
                         {tablesInZone.map((table) => {
                           const isSelected = selectedTable?.id === table.id
+                          const isPending = pendingGroupTableIds.includes(table.id)
+                          const isOccupiedByOther = table.status === 'dang_phuc_vu'
                           const isDisabled = table.status === 'dat_truoc' || table.status === 'can_don' || draftLoading
+                            || (isGroupMode && isOccupiedByOther && !isPending)
+
+                          // In group mode: only empty tables are selectable (and already-pending ones to deselect)
+                          const handleClick = isGroupMode
+                            ? () => {
+                                if (isOccupiedByOther) return
+                                setPendingGroupTableIds((ids) =>
+                                  ids.includes(table.id) ? ids.filter((id) => id !== table.id) : [...ids, table.id]
+                                )
+                              }
+                            : () => void openTable(table)
+
                           return (
                             <button
                               key={table.id}
@@ -713,15 +776,17 @@ function Pos() {
                               className={cn(
                                 'pos-table-card',
                                 `status-${table.status}`,
-                                isSelected && 'is-selected'
+                                isSelected && !isGroupMode && 'is-selected',
+                                isPending && 'is-group-pending',
+                                isGroupMode && isOccupiedByOther && 'is-group-dimmed',
                               )}
-                              onClick={() => void openTable(table)}
-                              aria-label={`${table.name}, ${tableStatusLabel(table.status)}`}
+                              onClick={handleClick}
+                              aria-pressed={isGroupMode ? isPending : undefined}
+                              aria-label={`${table.name}, ${tableStatusLabel(table.status)}${isPending ? ', đã chọn' : ''}`}
                             >
                               <span className="pos-table-name">{table.name}</span>
                               <span className="pos-table-status">
-                                <span className={cn('pos-table-dot', `dot-${table.status}`)} aria-hidden="true" />
-                                {tableStatusLabel(table.status)}
+                                {isPending ? 'Đã chọn' : tableStatusLabel(table.status)}
                               </span>
                             </button>
                           )
@@ -730,27 +795,124 @@ function Pos() {
                     ) : (
                       <p className="pos-tables-empty">Khu vực này chưa có bàn nào.</p>
                     )}
+
+                    {/* Group mode confirmation bar */}
+                    {isGroupMode && (
+                      <div className="pos-group-bar">
+                        <span className="pos-group-bar-label">
+                          {pendingGroupTableIds.length === 0
+                            ? 'Chọn 2+ bàn trống để gộp'
+                            : pendingGroupTableIds.length === 1
+                            ? `Đã chọn 1 bàn — chọn thêm ít nhất 1 bàn nữa`
+                            : `Gộp ${pendingGroupTableIds.length} bàn: ${pendingGroupTableIds.map((id) => floorPlan.data?.tables.find((t) => t.id === id)?.name ?? id).join(' + ')}`
+                          }
+                        </span>
+                        <div className="pos-group-bar-actions">
+                          <button type="button" className="pos-group-cancel-btn" onClick={exitGroupMode}>Huỷ</button>
+                          <button
+                            type="button"
+                            className="pos-group-confirm-btn"
+                            disabled={pendingGroupTableIds.length < 2 || draftLoading}
+                            onClick={() => void confirmGroupMode()}
+                          >
+                            Xác nhận gộp
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    </div>
+                  )}
+                </Tabs.Panel>
+
+                <Tabs.Panel value="counter" className="pos-context-panel mt-1">
+                  <p className="pos-context-desc">
+                    <IconCheck size={14} stroke={2.5} className="text-[var(--moss)]" />
+                    <span>Đơn phục vụ nhanh tại quầy · Không gắn số bàn</span>
+                  </p>
+                </Tabs.Panel>
+
+                <Tabs.Panel value="takeaway" className="pos-context-panel mt-1">
+                  <p className="pos-context-desc">
+                    <IconCheck size={14} stroke={2.5} className="text-[var(--ember)]" />
+                    <span>Đơn đóng gói mang đi · Không gắn số bàn</span>
+                  </p>
+                </Tabs.Panel>
+              </Tabs.Root>
+
+              {/* Active Draft Orders Strip (Always visible across all modes when orders are active) */}
+              {activeDraftsCount > 0 && !isGroupMode && (
+                <div className="mt-2.5 pt-2 border-t border-[#ede6de] flex flex-col gap-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[var(--char)] flex items-center gap-1.5">
+                      <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                      <span>Hóa đơn đang phục vụ ({activeDraftsCount})</span>
+                    </span>
+                    <span className="text-[10.5px] text-[#8c8177]">Chạm để mở</span>
                   </div>
-                )}
-              </Tabs.Panel>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 pt-0.5">
+                    {activeDrafts.map((draft) => {
+                      const isCurrentActive = activeDraft?.id === draft.id
+                      const lineCount = draft.lines.reduce((s, l) => s + l.quantity, 0)
+                      const isTable = draft.source === 'table'
+                      const isTakeaway = draft.source === 'takeaway'
+                      const label = isTable
+                        ? draft.tableNames && draft.tableNames.length > 1
+                          ? draft.tableNames.join('+')
+                          : draft.tableName
+                            ? draft.tableName.toLowerCase().startsWith('bàn')
+                              ? draft.tableName
+                              : `Bàn ${draft.tableName}`
+                            : 'Tại bàn'
+                        : isTakeaway
+                        ? `Mang đi #${String(draft.displayNumber || draft.orderCode).slice(-3)}`
+                        : `Tại quầy #${String(draft.displayNumber || draft.orderCode).slice(-3)}`
 
-              <Tabs.Panel value="counter" className="pos-context-panel mt-1">
-                <p className="pos-context-desc">
-                  <IconCheck size={14} stroke={2.5} className="text-[var(--moss)]" />
-                  <span>Đơn phục vụ nhanh tại quầy · Không gắn số bàn</span>
-                </p>
-              </Tabs.Panel>
+                      return (
+                        <button
+                          key={draft.id}
+                          type="button"
+                          onClick={() => selectDraftOrder(draft)}
+                          className={cn(
+                            'w-full p-2 rounded-xl text-left border transition-all cursor-pointer select-none flex flex-col justify-between gap-1 shadow-2xs hover:shadow-xs active:scale-[0.98]',
+                            isCurrentActive
+                              ? 'bg-[var(--espresso)] text-[var(--crema)] border-[var(--espresso)] ring-2 ring-amber-400/40 shadow-sm'
+                              : 'bg-white hover:bg-[#fcfaf7] text-[var(--char)] border-[#ded6cc] hover:border-amber-400'
+                          )}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={cn(
+                              'text-[9px] px-1 py-0.2 rounded font-bold uppercase shrink-0',
+                              isCurrentActive
+                                ? 'bg-amber-400/20 text-amber-300'
+                                : isTable
+                                ? 'bg-[#f5ede3] text-[#7a533b]'
+                                : isTakeaway
+                                ? 'bg-[#e6f4ea] text-[#137333]'
+                                : 'bg-[#e8f0fe] text-[#1a73e8]'
+                            )}>
+                              {isTable ? 'Bàn' : isTakeaway ? 'Mang đi' : 'Quầy'}
+                            </span>
+                            <strong className="text-xs font-bold truncate block">{label}</strong>
+                          </div>
 
-              <Tabs.Panel value="takeaway" className="pos-context-panel mt-1">
-                <p className="pos-context-desc">
-                  <IconCheck size={14} stroke={2.5} className="text-[var(--ember)]" />
-                  <span>Đơn đóng gói mang đi · Không gắn số bàn</span>
-                </p>
-              </Tabs.Panel>
-            </Tabs.Root>
+                          <div className="flex items-baseline justify-between gap-1.5 pt-0.5">
+                            <span className={cn('text-[10px] font-mono block', isCurrentActive ? 'text-[#d7ccc3]' : 'text-[#8c8177]')}>
+                              #{String(draft.displayNumber || draft.orderCode).padStart(3, '0')} · {lineCount} món
+                            </span>
+                            <strong className={cn('text-xs font-mono tabular-nums font-bold shrink-0', isCurrentActive ? 'text-amber-300' : 'text-[var(--ember)]')}>
+                              {formatMoney(draft.total)}
+                            </strong>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
 
-            {operationMessage && <p className="floor-feedback is-error mt-1" role="alert">{operationMessage}</p>}
-          </section>
+              {operationMessage && <p className="floor-feedback is-error mt-1" role="alert">{operationMessage}</p>}
+            </section>
 
           {/* Sticky Search & Category Bar */}
           <div className="pos-sticky-toolbar">
@@ -805,7 +967,20 @@ function Pos() {
           </div>
 
           {catalog.data?.fromCache && <p className="catalog-cache-note">Đang dùng menu đã lưu lúc {new Date(catalog.data.cachedAt).toLocaleTimeString('vi-VN')}.</p>}
-          {catalog.isLoading && <p className="floor-feedback">Đang tải menu…</p>}
+          {catalog.isLoading && (
+            <div className="pos-menu-grid" role="status" aria-busy="true">
+              <span className="sr-only">Đang tải menu…</span>
+              {Array.from({ length: 10 }).map((_, i) => (
+                <div key={i} className="pos-product-card pointer-events-none cursor-default" aria-hidden="true">
+                  <Skeleton className="aspect-square w-full rounded-lg border border-[#ede6de]" />
+                  <div className="pos-card-body">
+                    <Skeleton className="h-4 w-5/6" />
+                    <Skeleton className="h-3.5 w-1/2 mt-1" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
           {catalog.isError && <p className="floor-feedback is-error">Không tải được menu. Kết nối mạng để nhận catalog lần đầu.</p>}
           {catalog.data && !catalog.isLoading && !visibleProducts.length && (
             <div className="pos-empty-catalog" role="status">
@@ -862,6 +1037,8 @@ function Pos() {
                       src={`/api/media/menu-images?key=${encodeURIComponent(product.imageKey)}`}
                       alt=""
                       className="pos-card-img"
+                      loading="lazy"
+                      decoding="async"
                     />
                   ) : (
                     <div className="pos-card-img-placeholder" aria-hidden="true">
@@ -892,7 +1069,7 @@ function Pos() {
           {/* Floating Cart Checkout Bar on Tablet/Mobile (< 1024px) */}
           {totalQuantity > 0 && (
             <div className="pos-mobile-floating-bar" role="region" aria-label="Đơn hàng đang chọn">
-              <div className="pos-floating-info" onClick={() => setMobileTab('ticket')}>
+              <div className="pos-floating-info" onClick={() => setMobileView('ticket')}>
                 <div className="pos-floating-qty">
                   <IconReceipt size={17} stroke={1.75} />
                   <span>{totalQuantity} món đang chọn</span>
@@ -911,27 +1088,64 @@ function Pos() {
         </section>
 
         {/* Right Ticket Pane with Thermal Receipt Motif */}
-        <aside className={cn('order-pane', mobileTab !== 'ticket' && 'is-hidden-mobile')} aria-labelledby="ticket-title">
+        <aside className={cn('order-pane', mobileView !== 'ticket' && 'is-hidden-mobile')} aria-labelledby="ticket-title">
+          {/* Mobile Top Navigation Bar */}
+          <div className="lg:hidden flex items-center justify-between gap-2 mb-2">
+            <button
+              type="button"
+              onClick={() => setMobileView('main')}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#ede5db] hover:bg-[#e2d8cd] text-xs font-bold text-[var(--char)] transition-all cursor-pointer shadow-2xs"
+            >
+              <IconArrowLeft size={16} stroke={2.2} />
+              <span>Sơ đồ bàn</span>
+            </button>
+
+            <span className="text-xs font-extrabold text-[var(--char)] px-2.5 py-1 rounded-lg bg-[#ede6de]">
+              {orderContext === 'table'
+                ? (activeDraft?.tableNames && activeDraft.tableNames.length > 1
+                    ? activeDraft.tableNames.join('+')
+                    : (selectedTable ? selectedTable.name : 'Tại bàn'))
+                : orderContext === 'takeaway' ? 'Mang đi' : 'Tại quầy'}
+            </span>
+          </div>
+
           <div className="ticket-card">
             <div className="order-ticket">
-              <div className="ticket-head">
-                <div>
-                  <p className="eyebrow" id="ticket-title">
+              <div className="ticket-head flex items-start justify-between gap-3 pb-2 border-b border-[#ede6de]">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className={cn(
+                      'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider',
+                      orderContext === 'table'
+                        ? 'bg-[#f5ede3] text-[#7a533b]'
+                        : orderContext === 'takeaway'
+                        ? 'bg-[#e6f4ea] text-[#137333]'
+                        : 'bg-[#e8f0fe] text-[#1a73e8]'
+                    )}>
+                      {orderContext === 'table' ? 'Tại bàn' : orderContext === 'takeaway' ? 'Mang đi' : 'Tại quầy'}
+                    </span>
+                    {(activeDraft?.displayNumber || activeDraft?.orderCode) && (
+                      <span className="text-[11px] font-mono font-bold text-[var(--stone)]">
+                        #{String(activeDraft.displayNumber || activeDraft.orderCode).padStart(3, '0')}
+                      </span>
+                    )}
+                  </div>
+                  <strong className="text-base font-extrabold text-[var(--char)] truncate block">
                     {orderContext === 'table'
-                      ? (selectedTable ? (selectedTable.name.toLowerCase().startsWith('bàn') ? selectedTable.name : `Bàn ${selectedTable.name}`) : 'Đơn tại bàn')
+                      ? (() => {
+                          if (activeDraft?.tableNames && activeDraft.tableNames.length > 1) {
+                            return activeDraft.tableNames.join(' + ')
+                          }
+                          const name = selectedTable?.name
+                          return name ? (name.toLowerCase().startsWith('bàn') ? name : `Bàn ${name}`) : 'Chưa chọn bàn'
+                        })()
                       : orderContext === 'takeaway'
                       ? 'Đơn mang đi'
                       : 'Đơn tại quầy'}
-                  </p>
-                  <strong className="order-code font-mono tabular-nums">
-                    {activeDraft?.displayNumber ? `#${String(activeDraft.displayNumber).padStart(3, '0')}` : (activeDraft ? `#${activeDraft.orderCode}` : 'Chưa có món')}
                   </strong>
                 </div>
 
-                <div className="ticket-head-actions">
-                  <span className="status-badge">
-                    {orderContext === 'table' ? (selectedTable ? selectedTable.name : 'Bàn') : orderContext === 'takeaway' ? 'Mang đi' : 'Tại quầy'}
-                  </span>
+                <div className="ticket-head-actions flex items-center gap-2 shrink-0">
                   {activeDraft && selectedTable && (
                     <DraftTools
                       order={activeDraft}
@@ -942,6 +1156,16 @@ function Pos() {
                       }}
                       onMoved={async (tableId: string) => {
                         await moveToTable(tableId)
+                      }}
+                      onTableLinked={(tableIds, tableNames) => {
+                        setActiveDraft((current) => current ? { ...current, tableIds, tableNames } : current)
+                        void floorPlan.refetch()
+                        void activeDraftsQuery.refetch()
+                      }}
+                      onTableUnlinked={(tableIds, tableNames) => {
+                        setActiveDraft((current) => current ? { ...current, tableIds, tableNames } : current)
+                        void floorPlan.refetch()
+                        void activeDraftsQuery.refetch()
                       }}
                     />
                   )}
@@ -959,7 +1183,7 @@ function Pos() {
                   <div className="empty-order" role="status">
                     <span className="empty-order-icon" aria-hidden="true">☕</span>
                     <strong className="empty-order-title">Chưa có món nào</strong>
-                    <span className="empty-order-sub">Chạm vào món trong thực đơn để thêm</span>
+                    <span className="empty-order-sub">Chạm vào món trong thực đơn bên dưới để thêm vào đơn</span>
                   </div>
                 ) : (
                   items.map((item) => {
@@ -1005,50 +1229,73 @@ function Pos() {
                 )}
               </div>
 
-              {/* Discount Section */}
+              {/* Collapsible Discount Section */}
               {user.permissions.includes('pos.discount') && items.length > 0 && (
-                <div className="discount-panel">
-                  <div className="discount-panel-head">
-                    <strong>Giảm giá</strong>
-                    {discountAmount > 0 && <span className="font-mono tabular-nums text-[var(--moss)]">-{formatMoney(discountAmount)}</span>}
-                  </div>
-                  <div className="discount-controls">
-                    <div className="discount-row-inputs">
-                      <AppSelect
-                        size="sm"
-                        items={DISCOUNT_TYPE_OPTIONS}
-                        value={discountType}
-                        onValueChange={(val) => setDiscountType(val as 'percent' | 'fixed')}
-                        aria-label="Loại giảm giá"
-                        triggerClassName="w-full text-xs font-medium bg-white"
-                      />
+                <div className="discount-section mt-1.5 pt-1.5 border-t border-[#ede6de]/80">
+                  {!showDiscountForm && discountValue === 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowDiscountForm(true)}
+                      className="text-[11.5px] font-semibold text-[#8c8177] hover:text-[var(--ember)] flex items-center gap-1.5 py-0.5 px-1.5 rounded-md hover:bg-[#f7f2eb] transition-all cursor-pointer select-none"
+                    >
+                      <IconPlus size={12} stroke={2.5} />
+                      <span>Thêm giảm giá</span>
+                    </button>
+                  ) : (
+                    <div className="discount-panel p-2.5 rounded-xl bg-[#fcf9f5] border border-[#ded6cc] flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <strong className="text-xs font-bold text-[var(--char)]">Giảm giá</strong>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDiscountValue(0)
+                            setDiscountReason('')
+                            setShowDiscountForm(false)
+                          }}
+                          className="text-[11px] text-[#8c8177] hover:text-red-600 font-semibold cursor-pointer"
+                        >
+                          {discountValue > 0 ? 'Xóa giảm giá' : 'Đóng'}
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 items-center">
+                        <AppSelect
+                          size="sm"
+                          items={DISCOUNT_TYPE_OPTIONS}
+                          value={discountType}
+                          onValueChange={(val) => setDiscountType(val as 'percent' | 'fixed')}
+                          aria-label="Loại giảm giá"
+                          triggerClassName="w-full text-xs font-medium bg-white h-8 min-h-[32px] rounded-lg"
+                        />
+                        <Input
+                          size="sm"
+                          aria-label="Giá trị giảm giá"
+                          min="0"
+                          max={discountType === 'percent' ? 100 : subtotal}
+                          type="number"
+                          value={discountValue || ''}
+                          onChange={(event) => setDiscountValue(Math.max(0, Number(event.target.value) || 0))}
+                          placeholder={discountType === 'percent' ? '% giảm' : 'Số tiền'}
+                          className="h-8 min-h-[32px] text-xs rounded-lg bg-white"
+                        />
+                      </div>
                       <Input
                         size="sm"
-                        aria-label="Giá trị giảm giá"
-                        min="0"
-                        max={discountType === 'percent' ? 100 : subtotal}
-                        type="number"
-                        value={discountValue || ''}
-                        onChange={(event) => setDiscountValue(Math.max(0, Number(event.target.value) || 0))}
-                        placeholder={discountType === 'percent' ? '% giảm (VD: 10)' : 'Số tiền VNĐ'}
+                        aria-label="Lý do giảm giá"
+                        placeholder="Lý do giảm giá (tối thiểu 3 ký tự)..."
+                        value={discountReason}
+                        onChange={(event) => setDiscountReason(event.target.value)}
+                        className="h-8 min-h-[32px] text-xs rounded-lg bg-white"
                       />
+                      {discountValue > 0 && !discountInput && (
+                        <small className="text-[10.5px] text-amber-700">Nhập lý do giảm giá để ghi nhận audit.</small>
+                      )}
                     </div>
-                    <Input
-                      size="sm"
-                      aria-label="Lý do giảm giá"
-                      placeholder="Lý do giảm giá (tối thiểu 3 ký tự)..."
-                      value={discountReason}
-                      onChange={(event) => setDiscountReason(event.target.value)}
-                    />
-                  </div>
-                  {discountValue > 0 && !discountInput && (
-                    <small className="discount-help">Nhập lý do giảm giá để ghi nhận audit.</small>
                   )}
                 </div>
               )}
 
               {/* Perforated Divider before Totals */}
-              <div className="ticket-notch-divider mt-auto" aria-hidden="true">
+              <div className="ticket-notch-divider" aria-hidden="true">
                 <div className="ticket-notch-line" />
               </div>
 
@@ -1073,7 +1320,7 @@ function Pos() {
             </div>
 
             {/* Pay Button Section */}
-            <div className="pay-section p-4 pt-2">
+            <div className="pay-section p-4 pt-2 flex flex-col gap-2">
               <button
                 type="button"
                 disabled={!items.length || draftLoading}
@@ -1086,7 +1333,128 @@ function Pos() {
                 </span>
                 <span className="font-mono tabular-nums font-extrabold text-base">{formatMoney(total)}</span>
               </button>
-              <p className="payment-note mt-1 text-[11px] text-[#8c8177]">Chỉ hỗ trợ thanh toán tiền mặt</p>
+
+              <p className="payment-note text-[11px] text-[#8c8177]">Chỉ hỗ trợ thanh toán tiền mặt</p>
+            </div>
+          </div>
+
+          {/* Menu Catalog directly below Ticket on Mobile (List món trực tiếp bên hóa đơn) */}
+          <div className="lg:hidden flex flex-col gap-3 mt-4 pt-3 border-t border-[#ede6de]">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-[#8c8177]">
+                Thực đơn chọn món
+              </span>
+              <span className="text-[11px] text-[#8c8177]">
+                Chạm vào món để thêm vào hóa đơn
+              </span>
+            </div>
+
+            {/* Quick Search & Category Bar */}
+            <div className="relative flex items-center">
+              <IconSearch size={15} stroke={2} className="absolute left-3 text-[#8c8177] pointer-events-none" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Tìm kiếm món..."
+                className="w-full h-9 pl-8.5 pr-8 rounded-xl bg-white border border-[#ded6cd] text-xs text-[var(--char)] placeholder-[#a19588] focus:outline-none focus:border-[var(--espresso)] focus:ring-1 focus:ring-[var(--espresso)]"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2.5 p-1 text-[#8c8177] hover:text-[var(--char)] cursor-pointer"
+                >
+                  <IconX size={13} stroke={2.5} />
+                </button>
+              )}
+            </div>
+
+            {/* Category Pills */}
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+              <button
+                type="button"
+                onClick={() => setCategoryId('all')}
+                className={cn(
+                  'px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer select-none',
+                  categoryId === 'all'
+                    ? 'bg-[var(--espresso)] text-[var(--crema)] shadow-2xs'
+                    : 'bg-white border border-[#ded6cd] text-[#6b5d52] hover:text-[var(--char)]'
+                )}
+              >
+                Tất cả ({catalog.data?.products?.filter((p) => p.active)?.length ?? 0})
+              </button>
+              {activeCategories.map((cat) => {
+                const count = catalog.data?.products?.filter((p) => p.active && p.categoryId === cat.id)?.length ?? 0
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => setCategoryId(cat.id)}
+                    className={cn(
+                      'px-3 py-1 rounded-full text-xs font-bold whitespace-nowrap transition-all cursor-pointer select-none',
+                      categoryId === cat.id
+                        ? 'bg-[var(--espresso)] text-[var(--crema)] shadow-2xs'
+                        : 'bg-white border border-[#ded6cd] text-[#6b5d52] hover:text-[var(--char)]'
+                    )}
+                  >
+                    {cat.name} ({count})
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* Product Cards Grid */}
+            <div className="pos-menu-grid">
+              {visibleProducts.map((product) => {
+                const activeVariants = product.variants.filter((v) => v.active)
+                const isSingleVariant = activeVariants.length === 1 && !(activeVariants[0].modifierGroupIds?.length)
+                const minPrice = Math.min(...activeVariants.map((v) => v.price))
+                const quantityInDraft = items.filter((it) => it.menuItemId === product.id).reduce((s, it) => s + it.quantity, 0)
+
+                return (
+                  <button
+                    key={product.id}
+                    type="button"
+                    className={cn('pos-product-card relative', quantityInDraft > 0 && 'ring-1 ring-[var(--espresso)]')}
+                    onClick={() => selectProduct(product)}
+                  >
+                    {quantityInDraft > 0 && (
+                      <span className="absolute top-2 right-2 size-5 rounded-full bg-[var(--espresso)] text-[var(--crema)] text-[10px] font-black flex items-center justify-center shadow-xs z-10">
+                        {quantityInDraft}
+                      </span>
+                    )}
+                    {product.imageKey ? (
+                      <img
+                        src={`/api/media/menu-images?key=${encodeURIComponent(product.imageKey)}`}
+                        alt=""
+                        className="pos-card-img"
+                        loading="lazy"
+                        decoding="async"
+                      />
+                    ) : (
+                      <div className="pos-card-img-placeholder" aria-hidden="true">
+                        <IconCoffee size={24} stroke={1.5} className="text-[#a19588]" />
+                      </div>
+                    )}
+
+                    <div className="pos-card-body">
+                      <div className="pos-card-top">
+                        <strong className="pos-card-name" title={product.name}>{product.name}</strong>
+                        {product.description && (
+                          <span className="pos-card-desc" title={product.description}>{product.description}</span>
+                        )}
+                      </div>
+
+                      <div className="pos-card-footer">
+                        <strong className="pos-card-price font-mono tabular-nums">
+                          {isSingleVariant ? formatMoney(activeVariants[0].price) : `Từ ${formatMoney(minPrice)}`}
+                        </strong>
+                      </div>
+                    </div>
+                  </button>
+                )
+              })}
             </div>
           </div>
         </aside>
@@ -1122,602 +1490,589 @@ function Pos() {
         }}
       />
 
-      {/* Payment Success & Receipt Dialog */}
-      <Dialog.Root open={paid} onOpenChange={(open) => { setPaid(open); if (!open) { setRefunding(false); setRefundForm({ reason: '', email: '', password: '' }); setRefundMessage(''); setRefundError(''); setLastPaidOrder(null) } }}>
-        <Dialog.Portal>
-          <Dialog.Backdrop className="dialog-backdrop" />
-          <Dialog.Viewport className="dialog-viewport">
-            <Dialog.Popup className="payment-dialog print-receipt">
-              <p className="eyebrow">TOMNY COFFEE · ĐÃ GHI NHẬN</p>
-              <Dialog.Title className="flex items-center gap-2">
-                <IconCheck size={22} stroke={2.5} className="text-[var(--moss)]" />
-                <span>Thanh toán thành công</span>
-              </Dialog.Title>
-              <Dialog.Description>{paymentMessage}</Dialog.Description>
-              <div className="payment-total font-mono tabular-nums">{formatMoney(lastPaidTotal)}</div>
-              {refunding && (
-                <div className="refund-panel">
-                  <h3>Hủy & hoàn tiền toàn bộ đơn</h3>
-                  <p className="drawer-note">Chỉ hủy toàn đơn kèm hoàn tiền tiền mặt đầy đủ. Quản lý cần đăng nhập lại để duyệt.</p>
+      {/* Payment Success & Receipt Modal */}
+      <ReceiptModal
+        open={paid}
+        onOpenChange={(open) => {
+          setPaid(open)
+          if (!open) {
+            setRefunding(false)
+            setRefundForm({ reason: '', username: '', password: '' })
+            setRefundMessage('')
+            setRefundError('')
+            setLastPaidOrder(null)
+          }
+        }}
+        order={lastPaidReceiptData}
+        title="Thanh toán thành công"
+        description={paymentMessage}
+        successBadge={true}
+        onNewOrder={() => setPaid(false)}
+        customActions={
+          user.permissions.includes('pos.cancel') && lastPaidOrder ? (
+            <div className="pt-2 border-t border-[#ded1c0]/50 mt-1">
+              {refunding ? (
+                <div className="refund-panel p-3 bg-[#fdfaf6] border border-[#ede6de] rounded-xl text-left">
+                  <h4 className="text-xs font-bold text-[var(--char)] m-0 mb-1">Hủy & hoàn tiền toàn bộ đơn</h4>
+                  <p className="drawer-note text-[11px] text-[#8c8177] mb-2">Chỉ hủy toàn đơn kèm hoàn tiền tiền mặt đầy đủ.</p>
                   <Field.Root>
-                    <Field.Label>Lý do hủy</Field.Label>
-                    <Input size="sm" value={refundForm.reason} onChange={(event) => setRefundForm((current) => ({ ...current, reason: event.target.value }))} placeholder="Ví dụ: khách trả món" />
+                    <Field.Label className="text-xs">Lý do hủy</Field.Label>
+                    <Textarea size="sm" rows={2} value={refundForm.reason} onChange={(event) => setRefundForm((current) => ({ ...current, reason: event.target.value }))} placeholder="Ví dụ: khách trả món" className="resize-none" />
                   </Field.Root>
                   <Field.Root className="mt-2">
-                    <Field.Label>Email quản lý</Field.Label>
-                    <Input size="sm" type="email" value={refundForm.email} onChange={(event) => setRefundForm((current) => ({ ...current, email: event.target.value }))} placeholder="manager@tomny.coffee" />
+                    <Field.Label className="text-xs">Tên đăng nhập Quản lý</Field.Label>
+                    <Input size="sm" value={refundForm.username} onChange={(event) => setRefundForm((current) => ({ ...current, username: event.target.value }))} placeholder="VD: admin" />
                   </Field.Root>
                   <Field.Root className="mt-2">
-                    <Field.Label>Mật khẩu quản lý</Field.Label>
+                    <Field.Label className="text-xs">Mật khẩu quản lý</Field.Label>
                     <Input size="sm" type="password" value={refundForm.password} onChange={(event) => setRefundForm((current) => ({ ...current, password: event.target.value }))} placeholder="Nhập để duyệt" />
                   </Field.Root>
-                  {refundMessage && <p className="form-message success-message mt-2" role="status">{refundMessage}</p>}
-                  {refundError && <p className="form-message mt-2" role="alert">{refundError}</p>}
-                  <button
-                    className="refund-button"
-                    disabled={refundForm.reason.trim().length < 3 || !refundForm.email.trim() || !refundForm.password}
-                    onClick={() => void refundLastPaidOrder()}
-                  >
-                    Xác nhận hủy & hoàn tiền
-                  </button>
+                  {refundMessage && <p className="form-message success-message mt-2 text-xs" role="status">{refundMessage}</p>}
+                  {refundError && <p className="form-message mt-2 text-xs text-[var(--ember)]" role="alert">{refundError}</p>}
+                  <div className="flex gap-2 mt-3">
+                    <Button size="sm" variant="outline" onClick={() => setRefunding(false)} className="flex-1">Hủy</Button>
+                    <Button
+                      size="sm"
+                      variant="danger"
+                      disabled={refundForm.reason.trim().length < 3 || !refundForm.username.trim() || !refundForm.password}
+                      onClick={() => void refundLastPaidOrder()}
+                      className="flex-1"
+                    >
+                      Xác nhận
+                    </Button>
+                  </div>
                 </div>
+              ) : (
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => { setRefunding(true); setRefundError('') }}
+                  className="w-full text-xs text-[var(--ember)] hover:bg-[#fff0eb]"
+                >
+                  Hủy & hoàn tiền (quản lý)
+                </Button>
               )}
-              <div className="dialog-actions">
-                <button className="print-button flex items-center justify-center gap-1.5" onClick={() => window.print()}>
-                  <IconPrinter size={16} stroke={1.75} />
-                  <span>In hóa đơn</span>
-                </button>
-                {user.permissions.includes('pos.cancel') && !refundMessage && (
-                  <button className="refund-link" onClick={() => { setRefunding(true); setRefundError('') }}>
-                    Hủy & hoàn tiền (quản lý)
-                  </button>
-                )}
-                <Dialog.Close className="dialog-close" onClick={() => setPaid(false)}>Tạo đơn mới</Dialog.Close>
-              </div>
-            </Dialog.Popup>
-          </Dialog.Viewport>
-        </Dialog.Portal>
-      </Dialog.Root>
-
-      {/* UNIFIED DRAWER: 1 Touchpoint, 2 Tabs (Tab 1: Đang phục vụ, Tab 2: 5 Đơn Gần đây) */}
-      <Drawer.Root open={servingDrawerOpen} onOpenChange={setServingDrawerOpen}>
-        <Drawer.Content className="max-w-lg w-full">
-          {/* Drawer Top Bar */}
-          <div className="flex items-start justify-between pb-3 border-b border-[#ede6de]">
-            <div>
-              <p className="eyebrow text-xs text-[#8c8177] uppercase font-bold tracking-wider">
-                ĐƠN HÀNG
-              </p>
-              <Drawer.Title className="text-xl font-bold font-display text-[var(--char)] mt-0.5">
-                {drawerTab === 'serving' ? `${servingOrdersCount} đơn đang phục vụ` : '5 đơn thanh toán gần nhất'}
-              </Drawer.Title>
             </div>
-            <Drawer.Close aria-label="Đóng" className="dialog-close-btn">
-              <IconX size={18} stroke={1.75} />
-            </Drawer.Close>
-          </div>
+          ) : null
+        }
+      />
 
-          {/* 2-Tab Navigation inside Drawer */}
-          <div className="mt-3.5">
-            <div className="flex items-center p-1 bg-[#ede6de] rounded-xl gap-1" role="tablist">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={drawerTab === 'serving'}
-                onClick={() => setDrawerTab('serving')}
-                className={cn(
-                  'flex-1 min-w-0 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none flex items-center justify-center gap-1 whitespace-nowrap',
-                  drawerTab === 'serving'
-                    ? 'bg-white text-[var(--char)] shadow-xs'
-                    : 'text-[#61574f] hover:text-[var(--char)]'
-                )}
-              >
-                <span className={cn('w-1.5 h-1.5 rounded-full bg-[#f59e0b] shrink-0', servingOrdersCount > 0 && 'animate-pulse')} />
-                <span className="truncate">Đang phục vụ</span>
-                <span className="px-1 rounded-full bg-[#ede6de] font-mono text-[10px] shrink-0">
-                  {servingOrdersCount}
-                </span>
-              </button>
+      {/* Reprint Receipt Modal */}
+      <ReceiptModal
+        open={Boolean(reprintReceiptData)}
+        onOpenChange={(open) => { if (!open) setReprintReceiptData(null) }}
+        order={reprintReceiptData}
+        title="In lại hóa đơn"
+        description="Bản in lại hóa đơn bán hàng."
+      />
 
-              <button
-                type="button"
-                role="tab"
-                aria-selected={drawerTab === 'recent'}
-                onClick={() => { setDrawerTab('recent'); void recentPaidQuery.refetch() }}
-                className={cn(
-                  'flex-1 min-w-0 py-1.5 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none flex items-center justify-center gap-1 whitespace-nowrap',
-                  drawerTab === 'recent'
-                    ? 'bg-white text-[var(--char)] shadow-xs'
-                    : 'text-[#61574f] hover:text-[var(--char)]'
-                )}
-              >
-                <IconHistory size={13} stroke={2} className="text-[#8c8177] shrink-0" />
-                <span className="truncate">Gần đây</span>
-                <span className="px-1 rounded-full bg-[#ede6de] font-mono text-[10px] shrink-0">
-                  {recentOrders.length}
-                </span>
-              </button>
-            </div>
-          </div>
 
-          {/* TAB 1: ĐƠN ĐANG PHỤC VỤ (Mini-KDS Queue) */}
-          {drawerTab === 'serving' && (
-            <div className="grid gap-3.5 mt-3.5 pb-6">
-              {!servingOrdersCount && (
-                <div className="text-center p-8 bg-[#fffdfa] rounded-2xl border border-[#ede6de]">
-                  <IconToolsKitchen2 size={36} stroke={1.5} className="mx-auto text-[#c5bcaf] mb-2" />
-                  <p className="font-bold text-sm text-[var(--char)]">Hiện không có đơn nào đang chờ pha</p>
-                  <span className="text-xs text-[#8c8177] mt-1 block">Các đơn mới từ quầy và bàn sẽ tự động xuất hiện tại đây.</span>
+      {/* Fast Variant & Modifiers Configuration Dialog / Drawer (≤ 3 taps) */}
+      {isMobile ? (
+        <Drawer.Root
+          open={configuringProduct !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConfiguringProduct(null)
+              setSelectedVariantId(null)
+              setSelectedModifierIds([])
+              setConfigQuantity(1)
+            }
+          }}
+        >
+          <Drawer.Content direction="bottom" className="max-w-lg w-full max-h-[90dvh] p-0 bg-[#fffdf9] rounded-t-3xl border-t border-[#ded1c0] shadow-2xl flex flex-col">
+            {activeConfigProduct && (
+              <>
+                {/* Header */}
+                <div className="px-5 pt-3.5 pb-3 border-b border-[#ede6de] flex items-center gap-3 shrink-0 bg-[#fdfbf7]">
+                  {activeConfigProduct.imageKey ? (
+                    <img
+                      src={`/api/media/menu-images?key=${encodeURIComponent(activeConfigProduct.imageKey)}`}
+                      alt=""
+                      className="size-12 rounded-xl object-cover border border-[#ded5cb] shadow-2xs shrink-0"
+                    />
+                  ) : (
+                    <div className="size-12 rounded-xl bg-[#f5ede4] text-[var(--ember)] border border-[#ded5cb] flex items-center justify-center shrink-0">
+                      <IconCoffee size={22} stroke={1.75} />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <span className="px-1.5 py-0.5 rounded-md text-[9.5px] font-bold uppercase tracking-wider bg-[#ede6de] text-[#5e5246]">
+                        {catalog.data?.categories.find((c) => c.id === activeConfigProduct.categoryId)?.name ?? 'Món'}
+                      </span>
+                      <span className="font-mono text-xs font-bold text-[var(--ember)] tabular-nums">
+                        {selectedConfigVariant ? formatMoney(selectedConfigVariant.price) : '0₫'}
+                      </span>
+                    </div>
+                    <h3 className="text-sm sm:text-base font-bold font-display text-[var(--char)] m-0 truncate leading-tight">
+                      {activeConfigProduct.name}
+                    </h3>
+                  </div>
                 </div>
-              )}
 
-              {servingQueue.data?.orders?.map((order) => {
-                const isMaking = order.kdsStatus === 'making'
-                const isReady = order.kdsStatus === 'ready'
-                const isNew = order.kdsStatus === 'new'
-                const waitMinutes = Math.floor((Date.now() - order.createdAt) / 60000)
-
-                return (
-                  <div
-                    key={order.id}
-                    className={cn(
-                      'p-4 rounded-2xl border bg-white shadow-2xs flex flex-col gap-2.5 transition-all',
-                      isMaking ? 'border-[#3b82f6]/40 bg-[#f8fbff]' : isReady ? 'border-[#22c55e]/40 bg-[#f7fcf8]' : 'border-[#ede6de]'
-                    )}
-                  >
-                    {/* Order Head */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-extrabold font-mono text-[var(--char)]">
-                          #{order.orderCode}
-                        </span>
-                        <span className="text-xs font-semibold text-[#61574f]">
-                          {order.source === 'table' ? (order.tableName ? (order.tableName.startsWith('Bàn') ? order.tableName : `Bàn ${order.tableName}`) : 'Tại bàn') : (order.source === 'takeaway' ? 'Mang đi' : 'Tại quầy')}
-                        </span>
-                      </div>
-
-                      <span className={cn(
-                        'px-2 py-0.5 rounded-full text-[10.5px] font-extrabold flex items-center gap-1',
-                        isNew ? 'bg-[#fff8e1] text-[#b45309]' : isMaking ? 'bg-[#eff6ff] text-[#1d4ed8]' : 'bg-[#e8f5e9] text-[#2e7d32]'
-                      )}>
-                        {isNew ? '● Chờ pha' : isMaking ? '⚙ Đang pha' : '✓ Đã xong'}
+                {/* Body */}
+                <div className="px-5 py-3.5 space-y-4 overflow-y-auto flex-1 min-h-0 -webkit-overflow-scrolling-touch">
+                  {/* Sizes */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--char)] flex items-center gap-1">
+                        <span>Kích cỡ (Size)</span>
+                        <span className="text-[var(--ember)]">*</span>
+                      </label>
+                      <span className="text-[10.5px] font-semibold text-[#8c8177]">
+                        {configVariants.length} kích cỡ
                       </span>
                     </div>
 
-                    {/* Lines list */}
-                    <div className="grid gap-1 py-1 text-xs">
-                      {order.lines.map((l) => (
-                        <div key={l.id} className="flex justify-between items-start">
-                          <div>
-                            <strong className="text-[var(--char)]">{l.quantity} × {l.name}</strong>
-                            {l.variant && !['Mặc định', 'Phần'].includes(l.variant) && (
-                              <span className="text-[#8c8177]"> · {l.variant}</span>
+                    <div className={cn('grid gap-2', configVariants.length <= 2 ? 'grid-cols-2' : configVariants.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4')}>
+                      {configVariants.map((variant) => {
+                        const isSelected = selectedVariantId === variant.id
+                        return (
+                          <button
+                            key={variant.id}
+                            type="button"
+                            className={cn(
+                              'px-3.5 py-2.5 rounded-xl border text-left transition-all cursor-pointer select-none flex items-center justify-between gap-2 active:scale-[0.98]',
+                              isSelected
+                                ? 'bg-[#261c18] text-white border-[#261c18] shadow-xs ring-2 ring-[#261c18]/15'
+                                : 'bg-white text-[var(--char)] border-[#ded6cc] hover:bg-[#faf7f2] hover:border-[#c5b8a9]'
                             )}
-                            {l.modifiers && l.modifiers.length > 0 && (
-                              <span className="text-[#a09488] block text-[11px]">
-                                +{l.modifiers.map((m) => m.name).join(', ')}
+                            onClick={() => handleSelectVariant(variant.id)}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <div className={cn('text-xs sm:text-sm font-bold truncate leading-tight', isSelected ? 'text-white' : 'text-[var(--char)]')}>
+                                {variant.name}
+                              </div>
+                              <div className={cn('text-[11px] font-mono font-bold tabular-nums mt-0.5 leading-tight', isSelected ? 'text-[#e8c89b]' : 'text-[var(--ember)]')}>
+                                {formatMoney(variant.price)}
+                              </div>
+                            </div>
+                            {isSelected && (
+                              <div className="size-5 rounded-full bg-[#e8c89b] text-[#261c18] flex items-center justify-center shrink-0 shadow-2xs">
+                                <IconCheck size={12} stroke={3.5} />
+                              </div>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Modifiers */}
+                  {configGroups.map((group) => {
+                    const isSingle = group.maxSelections === 1
+                    const isPillGroup = isSingle && group.modifiers.every((m) => !m.priceDelta || m.priceDelta === 0)
+                    const selectedCount = group.modifiers.filter((m) => selectedModifierIds.includes(m.id)).length
+                    const isGroupSatisfied = selectedCount >= group.minSelections && selectedCount <= group.maxSelections
+
+                    return (
+                      <div key={group.id} className="pt-3.5 border-t border-[#ede6de]">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--char)]">
+                              {group.name}
+                            </span>
+                            {group.minSelections > 0 && (
+                              <span className="text-[var(--ember)] font-bold">*</span>
+                            )}
+                          </div>
+
+                          <div>
+                            {group.minSelections === 1 && group.maxSelections === 1 ? (
+                              <span className="px-1.5 py-0.5 rounded-md text-[9.5px] font-bold bg-[#fef3c7] text-[#92400e] border border-[#fde68a]">
+                                Bắt buộc chọn 1
+                              </span>
+                            ) : group.minSelections === 0 ? (
+                              <span className="px-1.5 py-0.5 rounded-md text-[9.5px] font-semibold bg-[#f0ebe4] text-[#716559]">
+                                Tối đa {group.maxSelections}
+                              </span>
+                            ) : (
+                              <span
+                                className={cn(
+                                  'px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border',
+                                  isGroupSatisfied
+                                    ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                    : 'bg-rose-50 text-rose-800 border-rose-200'
+                                )}
+                              >
+                                Chọn {group.minSelections}–{group.maxSelections}
                               </span>
                             )}
                           </div>
                         </div>
-                      ))}
-                    </div>
 
-                    {/* Card Actions */}
-                    <div className="flex items-center justify-between gap-2 pt-0.5">
-                      <div className="flex items-center gap-1.5 text-[11px]">
-                        <IconClock size={13} stroke={1.75} className="text-[#8c8177] shrink-0" />
-                        <span className="font-mono font-bold text-[var(--char)]">
-                          {new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                        <span className={cn(
-                          'font-semibold',
-                          waitMinutes >= 10 ? 'text-[var(--ember)]' : 'text-[#8c8177]'
-                        )}>
-                          · {waitMinutes < 1 ? 'vừa mới' : `${waitMinutes} phút`}
-                        </span>
-                      </div>
+                        {/* If single choice without extra fees: render as clean flex-wrap chips */}
+                        {isPillGroup ? (
+                          <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                            {group.modifiers.filter((m) => m.active).map((modifier) => {
+                              const checked = selectedModifierIds.includes(modifier.id)
+                              return (
+                                <button
+                                  key={modifier.id}
+                                  type="button"
+                                  onClick={() => handleToggleModifier(group, modifier.id)}
+                                  className={cn(
+                                    'px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none flex items-center gap-1.5 active:scale-[0.98]',
+                                    checked
+                                      ? 'bg-[#261c18] text-white border-[#261c18] shadow-2xs'
+                                      : 'bg-white border-[#ded6cc] text-[#554a40] hover:bg-[#faf7f2] hover:border-[#c5b8a9]'
+                                  )}
+                                >
+                                  {checked && <IconCheck size={12} stroke={3.5} className="text-[#e8c89b]" />}
+                                  <span>{modifier.name}</span>
+                                </button>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          /* If multi-choice or options with additional pricing: render as 2-column cards */
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {group.modifiers.filter((m) => m.active).map((modifier) => {
+                              const checked = selectedModifierIds.includes(modifier.id)
+                              return (
+                                <button
+                                  key={modifier.id}
+                                  type="button"
+                                  onClick={() => handleToggleModifier(group, modifier.id)}
+                                  className={cn(
+                                    'px-3 py-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs transition-all cursor-pointer select-none text-left active:scale-[0.98]',
+                                    checked
+                                      ? 'bg-[#fff5eb] border-[var(--ember)] text-[var(--char)] font-bold shadow-2xs ring-1 ring-[var(--ember)]/30'
+                                      : 'bg-white border-[#ded6cc] text-[#554a40] hover:bg-[#faf7f2] hover:border-[#c5b8a9]'
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <div
+                                      className={cn(
+                                        'size-4 flex items-center justify-center shrink-0 border transition-all',
+                                        isSingle ? 'rounded-full' : 'rounded-[4px]',
+                                        checked
+                                          ? 'bg-[var(--ember)] border-[var(--ember)] text-white'
+                                          : 'border-[#c5b8a9] bg-white'
+                                      )}
+                                    >
+                                      {checked && <IconCheck size={11} stroke={3} />}
+                                    </div>
+                                    <span className="truncate font-semibold">{modifier.name}</span>
+                                  </div>
 
-                      <div className="flex items-center gap-1.5">
-                        {isNew && (
-                          <Button
-                            size="xs"
-                            variant="primary"
-                            disabled={updateKdsStatus.isPending}
-                            onClick={() => updateKdsStatus.mutate({ orderId: order.id, status: 'making' })}
-                            className="flex items-center gap-1 font-bold text-xs"
-                          >
-                            <IconPlayerPlay size={13} stroke={2} />
-                            <span>Bắt đầu pha</span>
-                          </Button>
+                                  {modifier.priceDelta > 0 && (
+                                    <span className="font-mono tabular-nums text-[11px] shrink-0 font-bold text-[var(--ember)] pl-1">
+                                      +{formatMoney(modifier.priceDelta)}
+                                    </span>
+                                  )}
+                                </button>
+                              )
+                            })}
+                          </div>
                         )}
-                        {isMaking && (
-                          <Button
-                            size="xs"
-                            variant="primary"
-                            disabled={updateKdsStatus.isPending}
-                            onClick={() => updateKdsStatus.mutate({ orderId: order.id, status: 'ready' })}
-                            className="bg-[#2e7d32] hover:bg-[#1b5e20] flex items-center gap-1 font-bold text-xs"
-                          >
-                            <IconCheck size={13} stroke={2.5} />
-                            <span>Đã pha xong</span>
-                          </Button>
-                        )}
-                        {isReady && (
-                          <Button
-                            size="xs"
-                            variant="secondary"
-                            disabled={updateKdsStatus.isPending}
-                            onClick={() => updateKdsStatus.mutate({ orderId: order.id, status: 'served' })}
-                            className="border-[#2e7d32] text-[#2e7d32] hover:bg-[#e8f5e9] flex items-center gap-1 font-bold text-xs"
-                          >
-                            <IconCircleCheck size={13} stroke={2} />
-                            <span>Hoàn tất & Giao</span>
-                          </Button>
-                        )}
                       </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* TAB 2: 5 ĐƠN GẦN ĐÂY (Recent Paid Orders) */}
-          {drawerTab === 'recent' && (
-            <div className="grid gap-3 mt-3.5 pb-6">
-              {!recentOrders.length && (
-                <div className="text-center p-8 bg-[#fffdfa] rounded-2xl border border-[#ede6de]">
-                  <IconReceipt size={36} stroke={1.5} className="mx-auto text-[#c5bcaf] mb-2" />
-                  <p className="font-bold text-sm text-[var(--char)]">Chưa có đơn đã thanh toán gần đây</p>
-                  <span className="text-xs text-[#8c8177] mt-1 block">Sau khi thanh toán đơn tại POS, đơn sẽ tự động xuất hiện tại đây để in lại hoặc xem lại.</span>
-                </div>
-              )}
-
-              {recentOrders.map((order) => {
-                return (
-                  <div
-                    key={order.id}
-                    className="p-3.5 rounded-2xl border border-[#ede6de] bg-white shadow-2xs flex flex-col gap-2.5"
-                  >
-                    {/* Compact Card Top */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        {order.displayNumber ? (
-                          <span className="px-2 py-0.5 rounded-lg bg-[#f0e6d7] text-[#684838] font-bold text-xs font-mono border border-[#ded6cd]">
-                            #{String(order.displayNumber).padStart(3, '0')}
-                          </span>
-                        ) : null}
-                        <span className="text-xs font-mono font-bold text-[var(--char)]">
-                          #{order.orderCode}
-                        </span>
-                        <span className="text-xs text-[#61574f]">
-                          {order.source === 'table' ? (order.tableName ? (order.tableName.startsWith('Bàn') ? order.tableName : `Bàn ${order.tableName}`) : 'Tại bàn') : (order.source === 'takeaway' ? 'Mang đi' : 'Tại quầy')}
-                        </span>
-                      </div>
-
-                      <span className="px-2 py-0.5 rounded-full text-[10.5px] font-extrabold bg-[#e8f5e9] text-[#2e7d32]">
-                        ✓ Đã thanh toán
-                      </span>
-                    </div>
-
-                    {/* Compact Card Bottom: Time & Total & Action Buttons */}
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-[#ede6de]/80">
-                      <div>
-                        <span className="font-mono tabular-nums text-base font-extrabold text-[var(--char)] block">
-                          {formatMoney(order.total)}
-                        </span>
-                        <span className="text-[10.5px] text-[#8c8177] flex items-center gap-1 mt-0.5">
-                          <IconClock size={11} stroke={1.75} />
-                          <span>{new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} · Thu ngân: {order.cashier}</span>
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => window.print()}
-                          className="flex items-center gap-1 text-xs"
-                          aria-label="In lại hóa đơn"
-                        >
-                          <IconPrinter size={13} stroke={1.75} />
-                          <span>In lại</span>
-                        </Button>
-                        <Button
-                          size="xs"
-                          variant="secondary"
-                          onClick={() => setSelectedRecentDetailId(order.id)}
-                          className="flex items-center gap-1 text-xs font-bold"
-                          aria-label="Xem chi tiết đơn"
-                        >
-                          <span>Chi tiết</span>
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-        </Drawer.Content>
-      </Drawer.Root>
-
-      {/* Recent Order Detail & Manager Cancellation Modal */}
-      <Drawer.Root
-        open={Boolean(selectedRecentDetailId)}
-        onOpenChange={(open) => { if (!open) { setSelectedRecentDetailId(null); setCancelReason(''); setManagerEmail(''); setManagerPassword('') } }}
-      >
-        <Drawer.Content className="max-w-lg w-full">
-          <div className="flex items-start justify-between pb-4 border-b border-[#ede6de]">
-            <div>
-              <p className="eyebrow text-xs text-[#8c8177] uppercase font-bold tracking-wider">
-                CHI TIẾT ĐƠN ĐÃ THANH TOÁN
-              </p>
-              <Drawer.Title className="text-xl font-bold font-display text-[var(--char)] mt-0.5">
-                {recentDetailQuery.data?.displayNumber ? `Đơn #${String(recentDetailQuery.data.displayNumber).padStart(3, '0')}` : (recentDetailQuery.data ? `Đơn #${recentDetailQuery.data.orderCode}` : 'Đơn hàng')}
-              </Drawer.Title>
-            </div>
-            <Drawer.Close aria-label="Đóng" className="dialog-close-btn">
-              <IconX size={18} stroke={1.75} />
-            </Drawer.Close>
-          </div>
-
-          {recentDetailQuery.isLoading && <p className="floor-feedback mt-4">Đang tải chi tiết đơn…</p>}
-          {recentDetailQuery.isError && <p className="floor-feedback is-error mt-4">{recentDetailQuery.error.message}</p>}
-
-          {recentDetailQuery.data && (
-            <div className="grid gap-4 mt-4 pb-6 text-xs">
-              {/* Order Meta */}
-              <div className="p-3.5 bg-[#fffdfa] border border-[#ede6de] rounded-xl flex justify-between items-center">
-                <div>
-                  <strong className="text-[var(--char)] text-sm block">
-                    {recentDetailQuery.data.source === 'table' ? (recentDetailQuery.data.tableName || 'Tại bàn') : (recentDetailQuery.data.source === 'takeaway' ? 'Mang đi' : 'Tại quầy')}
-                  </strong>
-                  <span className="text-[#8c8177] mt-0.5 block">Thu ngân: {recentDetailQuery.data.cashier}</span>
-                </div>
-                <div className="text-right">
-                  <span className="font-mono text-[var(--char)] font-bold block">{new Date(recentDetailQuery.data.createdAt).toLocaleTimeString('vi-VN')}</span>
-                  <span className="font-mono text-[10.5px] text-[#8c8177]">{new Date(recentDetailQuery.data.createdAt).toLocaleDateString('vi-VN')}</span>
-                </div>
-              </div>
-
-              {/* Items list */}
-              <div>
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[#8c8177] mb-2">Món đã gọi</h4>
-                <div className="grid gap-2">
-                  {recentDetailQuery.data.lines?.map((line: any) => (
-                    <div key={line.id} className="p-3 rounded-xl border border-[#ede6de] bg-white flex justify-between items-start">
-                      <div>
-                        <strong className="text-[var(--char)] text-sm block">{line.name}</strong>
-                        <small className="text-[#8c8177] block mt-0.5">
-                          {line.variant || 'Tiêu chuẩn'}
-                          {line.modifiers?.length ? ` · ${line.modifiers.map((m: any) => m.name).join(', ')}` : ''}
-                        </small>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <span className="font-mono font-bold text-[var(--char)] block">
-                          {line.quantity} × {formatMoney(line.unitPrice)}
-                        </span>
-                        <span className="font-mono text-xs text-[#8c8177] block">{formatMoney(line.lineTotal)}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Total Summary */}
-              <div className="p-4 bg-[#fffdfa] border border-[#ede6de] rounded-xl grid gap-2">
-                <div className="flex justify-between text-[#8c8177]">
-                  <span>Tạm tính</span>
-                  <span className="font-mono font-semibold text-[var(--char)]">{formatMoney(recentDetailQuery.data.subtotal)}</span>
-                </div>
-                {recentDetailQuery.data.discountAmount > 0 && (
-                  <div className="flex justify-between text-[var(--ember)] font-medium">
-                    <span>Giảm giá</span>
-                    <span className="font-mono">-{formatMoney(recentDetailQuery.data.discountAmount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm font-bold text-[var(--char)] pt-2 border-t border-[#ede6de]">
-                  <span>Tổng tiền đã thanh toán</span>
-                  <span className="font-mono text-[var(--ember)] text-base">{formatMoney(recentDetailQuery.data.total)}</span>
-                </div>
-              </div>
-
-              {/* Actions: Print */}
-              <div className="flex gap-2">
-                <Button
-                  size="md"
-                  variant="outline"
-                  onClick={() => window.print()}
-                  className="w-full font-bold flex items-center justify-center gap-1.5"
-                >
-                  <IconPrinter size={16} stroke={1.75} />
-                  <span>In lại biên lai</span>
-                </Button>
-              </div>
-
-              {/* Manager Cancellation Flow (Strict Requirement: Inside Detail View Only) */}
-              {user.permissions.includes('pos.cancel') && (
-                <div className="p-4 bg-[#fff9f8] border border-[#fbdcd0] rounded-xl grid gap-3 mt-1">
-                  <div>
-                    <h5 className="text-xs font-bold text-[var(--ember)] uppercase tracking-wider">Hủy & hoàn tiền đơn đã thanh toán</h5>
-                    <p className="text-[11px] text-[#8c8177] mt-0.5">
-                      Yêu cầu nhập lý do và mật khẩu quản lý để duyệt hoàn tiền mặt.
-                    </p>
-                  </div>
-
-                  <Field.Root>
-                    <Field.Label className="text-xs font-semibold text-[var(--char)]">Lý do hủy đơn *</Field.Label>
-                    <Input
-                      size="sm"
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value)}
-                      placeholder="VD: Khách trả món, thanh toán nhầm"
-                      className="bg-white mt-1"
-                    />
-                  </Field.Root>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <Field.Root>
-                      <Field.Label className="text-xs font-semibold text-[var(--char)]">Email Quản lý</Field.Label>
-                      <Input
-                        size="sm"
-                        type="email"
-                        value={managerEmail}
-                        onChange={(e) => setManagerEmail(e.target.value)}
-                        placeholder="manager@tomny.coffee"
-                        className="bg-white mt-1"
-                      />
-                    </Field.Root>
-                    <Field.Root>
-                      <Field.Label className="text-xs font-semibold text-[var(--char)]">Mật khẩu Quản lý</Field.Label>
-                      <Input
-                        size="sm"
-                        type="password"
-                        value={managerPassword}
-                        onChange={(e) => setManagerPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="bg-white mt-1"
-                      />
-                    </Field.Root>
-                  </div>
-
-                  {cancelOrderMutation.isError && (
-                    <div className="flex items-center gap-2 p-2 rounded-lg bg-[#fdf2f2] text-xs text-[#9c1c1c]">
-                      <IconAlertCircle size={15} stroke={1.75} className="shrink-0" />
-                      <span>{cancelOrderMutation.error?.message ?? 'Không thể hủy đơn.'}</span>
-                    </div>
-                  )}
-
-                  <Button
-                    variant="danger"
-                    size="md"
-                    disabled={cancelOrderMutation.isPending || cancelReason.trim().length < 3 || !managerEmail.trim() || !managerPassword}
-                    onClick={() => cancelOrderMutation.mutate()}
-                    className="w-full font-bold text-xs"
-                  >
-                    {cancelOrderMutation.isPending ? 'Đang xử lý…' : 'Xác nhận hủy & hoàn tiền'}
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </Drawer.Content>
-      </Drawer.Root>
-
-      {/* Fast Variant & Modifiers Configuration Dialog (≤ 3 taps) */}
-      <Dialog.Root open={configuringProduct !== null} onOpenChange={(open) => { if (!open) { setConfiguringProduct(null); setSelectedVariantId(null); setSelectedModifierIds([]) } }}>
-        <Dialog.Portal>
-          <Dialog.Backdrop className="dialog-backdrop" />
-          <Dialog.Viewport className="dialog-viewport">
-            <Dialog.Popup className="product-config-dialog max-w-md w-full">
-              <p className="eyebrow text-xs font-bold uppercase text-[#8c8177]">TÙY CHỌN MÓN</p>
-              <Dialog.Title className="text-xl font-bold font-display text-[var(--char)] mt-0.5">
-                {configuringProduct?.name}
-              </Dialog.Title>
-              <Dialog.Description className="text-xs text-[#8c8177] mt-0.5">
-                {configuringProduct?.description || 'Chọn kích cỡ và tùy chọn đính kèm trước khi thêm vào đơn.'}
-              </Dialog.Description>
-
-              {/* Sizes (Large Touch Pills) */}
-              <div className="mt-4">
-                <label className="text-xs font-bold uppercase tracking-wider text-[#61574f] block mb-2">
-                  Kích cỡ (Size) *
-                </label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {configVariants.map((variant) => {
-                    const isSelected = selectedVariantId === variant.id
-                    return (
-                      <button
-                        key={variant.id}
-                        type="button"
-                        className={cn(
-                          'p-2.5 rounded-xl border text-center transition-all cursor-pointer select-none flex flex-col items-center justify-center gap-0.5',
-                          isSelected
-                            ? 'bg-[var(--espresso)] text-[var(--crema)] border-[var(--espresso)] shadow-xs'
-                            : 'bg-white text-[var(--char)] border-[#ded6cc] hover:bg-[#faf7f2]'
-                        )}
-                        onClick={() => { setSelectedVariantId(variant.id); setSelectedModifierIds([]) }}
-                      >
-                        <span className="text-xs font-bold">{variant.name}</span>
-                        <span className={cn('text-[11px] font-mono tabular-nums', isSelected ? 'text-[var(--crema)]/90' : 'text-[var(--ember)]')}>
-                          {formatMoney(variant.price)}
-                        </span>
-                      </button>
                     )
                   })}
                 </div>
-              </div>
 
-              {/* Modifiers (Sugar / Ice / Toppings) */}
-              {configGroups.map((group) => (
-                <fieldset className="modifier-choice-group mt-4 pt-3 border-t border-[#ede6de]" key={group.id}>
-                  <legend className="text-xs font-bold uppercase tracking-wider text-[#61574f]">
-                    {group.name}{' '}
-                    <small className="text-[#8c8177] font-normal lowercase">
-                      ({group.minSelections === group.maxSelections ? `chọn ${group.maxSelections}` : `chọn ${group.minSelections}–${group.maxSelections}`})
-                    </small>
-                  </legend>
-                  <div className="modifier-choices grid grid-cols-2 gap-2 mt-2">
-                    {group.modifiers.filter((modifier) => modifier.active).map((modifier) => {
-                      const checked = selectedModifierIds.includes(modifier.id)
-                      return (
-                        <label
-                          key={modifier.id}
-                          className={cn(
-                            'p-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs transition-all cursor-pointer select-none',
-                            checked
-                              ? 'bg-[#fff5eb] border-[var(--ember)] text-[var(--char)] font-bold shadow-2xs'
-                              : 'bg-white border-[#ded6cc] text-[#61574f] hover:bg-[#faf7f2]'
-                          )}
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <Checkbox.Root
-                              checked={checked}
-                              onCheckedChange={() => setSelectedModifierIds((current) => checked ? current.filter((id) => id !== modifier.id) : [...current, modifier.id])}
-                              aria-label={`Chọn ${modifier.name}`}
-                            >
-                              <Checkbox.Indicator />
-                            </Checkbox.Root>
-                            <span className="truncate">{modifier.name}</span>
-                          </div>
-                          <span className="font-mono tabular-nums text-[11px] text-[var(--ember)] shrink-0">
-                            {modifier.priceDelta ? `+${formatMoney(modifier.priceDelta)}` : '0₫'}
-                          </span>
-                        </label>
-                      )
-                    })}
+                {/* Footer */}
+                <div className="px-5 pt-3 pb-[calc(0.85rem+env(safe-area-inset-bottom,0px))] border-t border-[#ede6de] bg-[#fffdfa] flex items-center gap-3 shrink-0">
+                  {/* Quantity Stepper */}
+                  <div className="flex items-center border border-[#ded5cb] rounded-xl bg-white p-0.5 shadow-2xs shrink-0">
+                    <button
+                      type="button"
+                      disabled={configQuantity <= 1}
+                      onClick={() => setConfigQuantity((q) => Math.max(1, q - 1))}
+                      className="size-8.5 rounded-lg flex items-center justify-center text-[var(--char)] hover:bg-[#f0ebe4] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                      aria-label="Giảm số lượng"
+                    >
+                      <IconMinus size={14} stroke={2.5} />
+                    </button>
+                    <span className="w-8 text-center font-mono font-bold text-xs tabular-nums text-[var(--char)] select-none">
+                      {configQuantity}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setConfigQuantity((q) => q + 1)}
+                      className="size-8.5 rounded-lg flex items-center justify-center text-[var(--char)] hover:bg-[#f0ebe4] active:scale-95 transition-all cursor-pointer"
+                      aria-label="Tăng số lượng"
+                    >
+                      <IconPlus size={14} stroke={2.5} />
+                    </button>
                   </div>
-                </fieldset>
-              ))}
 
-              {/* Modal Bottom CTA */}
-              <div className="dialog-actions mt-5 flex gap-2">
-                <Dialog.Close className="print-button shrink-0">Hủy</Dialog.Close>
-                <PrimaryButton
-                  size="md"
-                  disabled={!selectedVariantId || !configValid || draftLoading}
-                  onClick={() => {
-                    if (configuringProduct && selectedConfigVariant) {
-                      void addVariant(configuringProduct, selectedConfigVariant, selectedModifierIds)
-                      setConfiguringProduct(null)
-                      setSelectedVariantId(null)
-                      setSelectedModifierIds([])
-                    }
-                  }}
-                  className="flex-1 font-bold text-xs"
-                >
-                  Thêm vào đơn · {selectedConfigVariant ? formatMoney(selectedConfigVariant.price + selectedModifierIds.reduce((sum, modId) => {
-                    const mod = configGroups.flatMap((g) => g.modifiers).find((m) => m.id === modId)
-                    return sum + (mod?.priceDelta ?? 0)
-                  }, 0)) : '0₫'}
-                </PrimaryButton>
-              </div>
-            </Dialog.Popup>
-          </Dialog.Viewport>
-        </Dialog.Portal>
-      </Dialog.Root>
+                  {/* Primary CTA */}
+                  <PrimaryButton
+                    size="md"
+                    disabled={!selectedVariantId || !configValid || draftLoading}
+                    onClick={() => void handleAddConfiguredProduct()}
+                    className="flex-1 font-bold text-xs h-10 flex items-center justify-between px-4 shadow-sm"
+                  >
+                    <span>Thêm vào đơn</span>
+                    <span className="font-mono text-sm tabular-nums font-bold tracking-tight">
+                      {formatMoney(totalConfigPrice)}
+                    </span>
+                  </PrimaryButton>
+                </div>
+              </>
+            )}
+          </Drawer.Content>
+        </Drawer.Root>
+      ) : (
+        <Dialog.Root
+          open={configuringProduct !== null}
+          onOpenChange={(open) => {
+            if (!open) {
+              setConfiguringProduct(null)
+              setSelectedVariantId(null)
+              setSelectedModifierIds([])
+              setConfigQuantity(1)
+            }
+          }}
+        >
+          <Dialog.Portal>
+            <Dialog.Backdrop className="dialog-backdrop" />
+            <Dialog.Viewport className="dialog-viewport p-3 sm:p-4">
+              <Dialog.Popup className="w-full max-w-[460px] rounded-2xl bg-[#fffdf9] p-0 shadow-2xl border border-[#ded1c0] overflow-hidden">
+                {activeConfigProduct && (
+                  <div className="flex flex-col max-h-[85vh]">
+                    {/* Header */}
+                    <div className="px-4 sm:px-5 py-3 border-b border-[#ede6de] flex items-center justify-between gap-3 bg-[#fdfbf7] shrink-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {activeConfigProduct.imageKey ? (
+                          <img
+                            src={`/api/media/menu-images?key=${encodeURIComponent(activeConfigProduct.imageKey)}`}
+                            alt=""
+                            className="size-11 rounded-xl object-cover border border-[#ded5cb] shadow-2xs shrink-0"
+                          />
+                        ) : (
+                          <div className="size-11 rounded-xl bg-[#f5ede4] text-[var(--ember)] border border-[#ded5cb] flex items-center justify-center shrink-0">
+                            <IconCoffee size={20} stroke={1.75} />
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <span className="px-1.5 py-0.5 rounded-md text-[9.5px] font-bold uppercase tracking-wider bg-[#ede6de] text-[#5e5246]">
+                              {catalog.data?.categories.find((c) => c.id === activeConfigProduct.categoryId)?.name ?? 'Món'}
+                            </span>
+                            <span className="font-mono text-xs font-bold text-[var(--ember)] tabular-nums">
+                              {selectedConfigVariant ? formatMoney(selectedConfigVariant.price) : '0₫'}
+                            </span>
+                          </div>
+                          <Dialog.Title className="text-sm sm:text-base font-bold font-display text-[var(--char)] m-0 truncate leading-tight">
+                            {activeConfigProduct.name}
+                          </Dialog.Title>
+                        </div>
+                      </div>
+
+                      <Dialog.Close aria-label="Đóng" className="size-8 rounded-lg text-[#8c8177] hover:text-[var(--char)] hover:bg-[#efe7dc] flex items-center justify-center transition-colors cursor-pointer shrink-0">
+                        <IconX size={17} stroke={2} />
+                      </Dialog.Close>
+                    </div>
+
+                    {/* Body */}
+                    <div className="px-4 sm:px-5 py-3.5 space-y-4 overflow-y-auto flex-1 min-h-0">
+                      {/* Sizes */}
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-[11px] font-bold uppercase tracking-wider text-[var(--char)] flex items-center gap-1">
+                            <span>Kích cỡ (Size)</span>
+                            <span className="text-[var(--ember)]">*</span>
+                          </label>
+                          <span className="text-[10.5px] font-semibold text-[#8c8177]">
+                            {configVariants.length} kích cỡ
+                          </span>
+                        </div>
+
+                        <div className={cn('grid gap-2', configVariants.length <= 2 ? 'grid-cols-2' : configVariants.length === 3 ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4')}>
+                          {configVariants.map((variant) => {
+                            const isSelected = selectedVariantId === variant.id
+                            return (
+                              <button
+                                key={variant.id}
+                                type="button"
+                                className={cn(
+                                  'px-3.5 py-2.5 rounded-xl border text-left transition-all cursor-pointer select-none flex items-center justify-between gap-2 active:scale-[0.98]',
+                                  isSelected
+                                    ? 'bg-[#261c18] text-white border-[#261c18] shadow-xs ring-2 ring-[#261c18]/15'
+                                    : 'bg-white text-[var(--char)] border-[#ded6cc] hover:bg-[#faf7f2] hover:border-[#c5b8a9]'
+                                )}
+                                onClick={() => handleSelectVariant(variant.id)}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className={cn('text-xs sm:text-sm font-bold truncate leading-tight', isSelected ? 'text-white' : 'text-[var(--char)]')}>
+                                    {variant.name}
+                                  </div>
+                                  <div className={cn('text-[11px] font-mono font-bold tabular-nums mt-0.5 leading-tight', isSelected ? 'text-[#e8c89b]' : 'text-[var(--ember)]')}>
+                                    {formatMoney(variant.price)}
+                                  </div>
+                                </div>
+                                {isSelected && (
+                                  <div className="size-5 rounded-full bg-[#e8c89b] text-[#261c18] flex items-center justify-center shrink-0 shadow-2xs">
+                                    <IconCheck size={12} stroke={3.5} />
+                                  </div>
+                                )}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Modifiers */}
+                      {configGroups.map((group) => {
+                        const isSingle = group.maxSelections === 1
+                        const isPillGroup = isSingle && group.modifiers.every((m) => !m.priceDelta || m.priceDelta === 0)
+                        const selectedCount = group.modifiers.filter((m) => selectedModifierIds.includes(m.id)).length
+                        const isGroupSatisfied = selectedCount >= group.minSelections && selectedCount <= group.maxSelections
+
+                        return (
+                          <div key={group.id} className="pt-3.5 border-t border-[#ede6de]">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11px] font-bold uppercase tracking-wider text-[var(--char)]">
+                                  {group.name}
+                                </span>
+                                {group.minSelections > 0 && (
+                                  <span className="text-[var(--ember)] font-bold">*</span>
+                                )}
+                              </div>
+
+                              <div>
+                                {group.minSelections === 1 && group.maxSelections === 1 ? (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[9.5px] font-bold bg-[#fef3c7] text-[#92400e] border border-[#fde68a]">
+                                    Bắt buộc chọn 1
+                                  </span>
+                                ) : group.minSelections === 0 ? (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[9.5px] font-semibold bg-[#f0ebe4] text-[#716559]">
+                                    Tối đa {group.maxSelections}
+                                  </span>
+                                ) : (
+                                  <span
+                                    className={cn(
+                                      'px-1.5 py-0.5 rounded-md text-[9.5px] font-bold border',
+                                      isGroupSatisfied
+                                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                                        : 'bg-rose-50 text-rose-800 border-rose-200'
+                                    )}
+                                  >
+                                    Chọn {group.minSelections}–{group.maxSelections}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* If single choice without extra fees: render as clean flex-wrap chips */}
+                            {isPillGroup ? (
+                              <div className="flex flex-wrap gap-1.5 sm:gap-2">
+                                {group.modifiers.filter((m) => m.active).map((modifier) => {
+                                  const checked = selectedModifierIds.includes(modifier.id)
+                                  return (
+                                    <button
+                                      key={modifier.id}
+                                      type="button"
+                                      onClick={() => handleToggleModifier(group, modifier.id)}
+                                      className={cn(
+                                        'px-3.5 py-2 rounded-xl border text-xs font-bold transition-all cursor-pointer select-none flex items-center gap-1.5 active:scale-[0.98]',
+                                        checked
+                                          ? 'bg-[#261c18] text-white border-[#261c18] shadow-2xs'
+                                          : 'bg-white border-[#ded6cc] text-[#554a40] hover:bg-[#faf7f2] hover:border-[#c5b8a9]'
+                                      )}
+                                    >
+                                      {checked && <IconCheck size={12} stroke={3.5} className="text-[#e8c89b]" />}
+                                      <span>{modifier.name}</span>
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            ) : (
+                              /* If multi-choice or options with additional pricing: render as 2-column cards */
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {group.modifiers.filter((m) => m.active).map((modifier) => {
+                                  const checked = selectedModifierIds.includes(modifier.id)
+                                  return (
+                                    <button
+                                      key={modifier.id}
+                                      type="button"
+                                      onClick={() => handleToggleModifier(group, modifier.id)}
+                                      className={cn(
+                                        'px-3 py-2.5 rounded-xl border flex items-center justify-between gap-2 text-xs transition-all cursor-pointer select-none text-left active:scale-[0.98]',
+                                        checked
+                                          ? 'bg-[#fff5eb] border-[var(--ember)] text-[var(--char)] font-bold shadow-2xs ring-1 ring-[var(--ember)]/30'
+                                          : 'bg-white border-[#ded6cc] text-[#554a40] hover:bg-[#faf7f2] hover:border-[#c5b8a9]'
+                                      )}
+                                    >
+                                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                                        <div
+                                          className={cn(
+                                            'size-4 flex items-center justify-center shrink-0 border transition-all',
+                                            isSingle ? 'rounded-full' : 'rounded-[4px]',
+                                            checked
+                                              ? 'bg-[var(--ember)] border-[var(--ember)] text-white'
+                                              : 'border-[#c5b8a9] bg-white'
+                                          )}
+                                        >
+                                          {checked && <IconCheck size={11} stroke={3} />}
+                                        </div>
+                                        <span className="truncate font-semibold">{modifier.name}</span>
+                                      </div>
+
+                                      {modifier.priceDelta > 0 && (
+                                        <span className="font-mono tabular-nums text-[11px] shrink-0 font-bold text-[var(--ember)] pl-1">
+                                          +{formatMoney(modifier.priceDelta)}
+                                        </span>
+                                      )}
+                                    </button>
+                                  )
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Footer */}
+                    <div className="px-4 sm:px-5 py-2.5 sm:py-3 border-t border-[#ede6de] bg-[#fbf8f4] flex items-center gap-3 shrink-0">
+                      {/* Quantity Stepper */}
+                      <div className="flex items-center border border-[#ded5cb] rounded-xl bg-white p-0.5 shadow-2xs shrink-0">
+                        <button
+                          type="button"
+                          disabled={configQuantity <= 1}
+                          onClick={() => setConfigQuantity((q) => Math.max(1, q - 1))}
+                          className="size-8 rounded-lg flex items-center justify-center text-[var(--char)] hover:bg-[#f0ebe4] active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                          aria-label="Giảm số lượng"
+                        >
+                          <IconMinus size={13} stroke={2.5} />
+                        </button>
+                        <span className="w-7 text-center font-mono font-bold text-xs tabular-nums text-[var(--char)] select-none">
+                          {configQuantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setConfigQuantity((q) => q + 1)}
+                          className="size-8 rounded-lg flex items-center justify-center text-[var(--char)] hover:bg-[#f0ebe4] active:scale-95 transition-all cursor-pointer"
+                          aria-label="Tăng số lượng"
+                        >
+                          <IconPlus size={13} stroke={2.5} />
+                        </button>
+                      </div>
+
+                      <PrimaryButton
+                        size="md"
+                        disabled={!selectedVariantId || !configValid || draftLoading}
+                        onClick={() => void handleAddConfiguredProduct()}
+                        className="flex-1 font-bold text-xs h-9.5 flex items-center justify-between px-4 shadow-xs"
+                      >
+                        <span>Thêm vào đơn</span>
+                        <span className="font-mono text-sm tabular-nums font-bold tracking-tight">
+                          {formatMoney(totalConfigPrice)}
+                        </span>
+                      </PrimaryButton>
+                    </div>
+                  </div>
+                )}
+              </Dialog.Popup>
+            </Dialog.Viewport>
+          </Dialog.Portal>
+        </Dialog.Root>
+      )}
     </div>
   )
 }

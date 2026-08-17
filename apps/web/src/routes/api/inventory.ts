@@ -33,25 +33,87 @@ export const Route = createFileRoute('/api/inventory')({
 
 async function listInventory({ request }: { request: Request }) {
   requirePermission(await getCurrentUser(request), 'inventory.read')
-  const ingredientId = new URL(request.url).searchParams.get('ingredientId')
-  const [ingredients, inventoryValue] = await Promise.all([env.DB.prepare(`
-    SELECT id, name, unit, reorder_point AS reorderPoint, current_quantity AS currentQuantity, active
-    FROM ingredients
-    ORDER BY active DESC, name
-  `).all<{ id: string; name: string; unit: string; reorderPoint: number; currentQuantity: number; active: number }>(), env.DB.prepare('SELECT COALESCE(SUM(remaining_quantity * unit_cost), 0) AS value FROM inventory_lots WHERE remaining_quantity > 0').first<{ value: number }>()])
-  const movements = await env.DB.prepare(`
-    SELECT m.id, m.ingredient_id AS ingredientId, i.name AS ingredientName, m.type,
-      m.quantity_delta AS quantityDelta, m.reason, m.created_at AS createdAt,
-      u.display_name AS actorName
-    FROM inventory_movements m
-    JOIN ingredients i ON i.id = m.ingredient_id
-    JOIN users u ON u.id = m.actor_id
-    ${ingredientId ? 'WHERE m.ingredient_id = ?' : ''}
-    ORDER BY m.created_at DESC
-    LIMIT 300
-  `).bind(...(ingredientId ? [ingredientId] : [])).all()
+  const url = new URL(request.url)
+  const ingredientId = url.searchParams.get('ingredientId')
+  const monthParam = url.searchParams.get('month') // e.g. '2026-08'
+
+  // Calculate month range (Vietnam time UTC+7)
+  const now = new Date()
+  const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  const targetMonth = monthParam && /^\d{4}-\d{2}$/.test(monthParam) ? monthParam : currentMonthStr
+
+  const [yStr, mStr] = targetMonth.split('-')
+  const y = parseInt(yStr, 10)
+  const m = parseInt(mStr, 10)
+  const monthStart = new Date(`${y}-${String(m).padStart(2, '0')}-01T00:00:00+07:00`).getTime()
+  const nextMonthDate =
+    m === 12
+      ? new Date(`${y + 1}-01-01T00:00:00+07:00`)
+      : new Date(`${y}-${String(m + 1).padStart(2, '0')}-01T00:00:00+07:00`)
+  const monthEnd = nextMonthDate.getTime()
+
+  const [ingredients, inventoryValue, monthlyPurchasing, ingredientMonthlyStats, movements] = await Promise.all([
+    env.DB.prepare(`
+      SELECT id, name, unit, reorder_point AS reorderPoint, current_quantity AS currentQuantity, active
+      FROM ingredients
+      ORDER BY active DESC, name
+    `).all<{ id: string; name: string; unit: string; reorderPoint: number; currentQuantity: number; active: number }>(),
+
+    env.DB.prepare('SELECT COALESCE(SUM(remaining_quantity * unit_cost), 0) AS value FROM inventory_lots WHERE remaining_quantity > 0').first<{ value: number }>(),
+
+    env.DB.prepare(`
+      SELECT 
+        COUNT(*) AS receiptCount,
+        COALESCE(SUM(quantity_delta * unit_cost), 0) AS totalCost,
+        COALESCE(SUM(quantity_delta), 0) AS totalQuantity
+      FROM inventory_movements
+      WHERE type = 'receipt' AND created_at >= ? AND created_at < ?
+    `).bind(monthStart, monthEnd).first<{ receiptCount: number; totalCost: number; totalQuantity: number }>(),
+
+    env.DB.prepare(`
+      SELECT 
+        ingredient_id AS ingredientId,
+        COALESCE(SUM(CASE WHEN type = 'receipt' THEN quantity_delta ELSE 0 END), 0) AS receivedQuantity,
+        COALESCE(SUM(CASE WHEN type = 'receipt' THEN quantity_delta * unit_cost ELSE 0 END), 0) AS receivedCost,
+        COALESCE(SUM(CASE WHEN type != 'receipt' AND quantity_delta < 0 THEN ABS(quantity_delta) ELSE 0 END), 0) AS usedQuantity
+      FROM inventory_movements
+      WHERE created_at >= ? AND created_at < ?
+      GROUP BY ingredient_id
+    `).bind(monthStart, monthEnd).all<{ ingredientId: string; receivedQuantity: number; receivedCost: number; usedQuantity: number }>(),
+
+    env.DB.prepare(`
+      SELECT m.id, m.ingredient_id AS ingredientId, i.name AS ingredientName, i.unit, m.type,
+        m.quantity_delta AS quantityDelta, m.unit_cost AS unitCost, m.reason, m.created_at AS createdAt,
+        u.display_name AS actorName
+      FROM inventory_movements m
+      JOIN ingredients i ON i.id = m.ingredient_id
+      JOIN users u ON u.id = m.actor_id
+      ${ingredientId ? 'WHERE m.ingredient_id = ?' : ''}
+      ORDER BY m.created_at DESC
+      LIMIT 300
+    `).bind(...(ingredientId ? [ingredientId] : [])).all(),
+  ])
+
+  const statsMap = new Map((ingredientMonthlyStats.results ?? []).map((s) => [s.ingredientId, s]))
+
   return Response.json({
-    ingredients: ingredients.results.map((item) => ({ ...item, active: Boolean(item.active), lowStock: item.currentQuantity <= item.reorderPoint })),
+    month: targetMonth,
+    monthlySummary: {
+      totalCost: Number(monthlyPurchasing?.totalCost ?? 0),
+      receiptCount: Number(monthlyPurchasing?.receiptCount ?? 0),
+      totalQuantity: Number(monthlyPurchasing?.totalQuantity ?? 0),
+    },
+    ingredients: ingredients.results.map((item) => {
+      const stat = statsMap.get(item.id)
+      return {
+        ...item,
+        active: Boolean(item.active),
+        lowStock: item.currentQuantity <= item.reorderPoint,
+        monthlyReceivedQuantity: Number(stat?.receivedQuantity ?? 0),
+        monthlyReceivedCost: Number(stat?.receivedCost ?? 0),
+        monthlyUsedQuantity: Number(stat?.usedQuantity ?? 0),
+      }
+    }),
     movements: movements.results,
     inventoryValue: Number(inventoryValue?.value ?? 0),
   })

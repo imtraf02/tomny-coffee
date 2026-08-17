@@ -70,22 +70,22 @@ async function hashPassword(password) {
   )
   const derived = new Uint8Array(
     await webcrypto.subtle.deriveBits(
-      { name: 'PBKDF2', salt, iterations: 310000, hash: 'SHA-256' },
+      { name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256' },
       key,
       256,
     ),
   )
-  return `pbkdf2$310000$${Buffer.from(salt).toString('base64url')}$${Buffer.from(derived).toString('base64url')}`
+  return `pbkdf2$100000$${Buffer.from(salt).toString('base64url')}$${Buffer.from(derived).toString('base64url')}`
 }
 
 // ---------------------------------------------------------------------------
 // Users & permissions
 // ---------------------------------------------------------------------------
 const users = [
-  { id: 'seed-user-owner', email: 'owner@tomny.coffee', displayName: 'Chủ quán' },
-  { id: 'seed-user-cashier', email: 'cashier@tomny.coffee', displayName: 'Thu ngân' },
-  { id: 'seed-user-barista', email: 'barista@tomny.coffee', displayName: 'Pha chế' },
-  { id: 'seed-user-stock', email: 'stock@tomny.coffee', displayName: 'Quản kho' },
+  { id: 'seed-user-owner', username: 'admin', email: 'admin@tomny.coffee', displayName: 'Chủ quán' },
+  { id: 'seed-user-cashier', username: 'cashier', email: 'cashier@tomny.coffee', displayName: 'Thu ngân' },
+  { id: 'seed-user-barista', username: 'barista', email: 'barista@tomny.coffee', displayName: 'Pha chế' },
+  { id: 'seed-user-stock', username: 'stock', email: 'stock@tomny.coffee', displayName: 'Quản kho' },
 ]
 
 const ALL_PERMISSIONS = [
@@ -111,8 +111,6 @@ const permissionByUser = {
     'menu.read', 'inventory.read', 'inventory.manage', 'inventory.stocktake', 'reports.read',
   ],
 }
-
-const permissions = ALL_PERMISSIONS.map((code) => ({ id: `seed-perm-${code}`, code, label: PERMISSION_LABELS[code] ?? code }))
 
 const PERMISSION_LABELS = {
   'pos.read': 'Truy cập POS',
@@ -144,6 +142,8 @@ const PERMISSION_LABELS = {
   'timeclock.use': 'Chấm công ca làm',
   'timeclock.manage': 'Duyệt chấm công',
 }
+
+const permissions = ALL_PERMISSIONS.map((code) => ({ id: `seed-perm-${code}`, code, label: PERMISSION_LABELS[code] ?? code }))
 
 const userPermissions = []
 for (const [userId, codes] of Object.entries(permissionByUser)) {
@@ -584,7 +584,7 @@ const output = async () => {
     `-- Generated ${new Date().toISOString()}`,
     'PRAGMA foreign_keys = ON;',
     cleanup,
-    insert('users', ['id', 'email', 'display_name', 'password_hash', 'active', 'created_at', 'updated_at'], users.map((user) => ({ ...user, passwordHash, active: true, createdAt: NOW - 30 * DAY, updatedAt: NOW - 30 * DAY }))),
+    insert('users', ['id', 'username', 'email', 'display_name', 'password_hash', 'active', 'created_at', 'updated_at'], users.map((user) => ({ ...user, passwordHash, active: true, createdAt: NOW - 30 * DAY, updatedAt: NOW - 30 * DAY }))),
     insert('permissions', ['id', 'code', 'label'], permissions),
     insert('user_permissions', ['user_id', 'permission_id', 'granted_at'], userPermissions),
     insert('zones', ['id', 'name', 'active', 'sort_order'], zones.map((zone) => ({ ...zone, active: true }))),

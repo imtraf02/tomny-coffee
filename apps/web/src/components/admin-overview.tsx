@@ -13,13 +13,26 @@ import {
   IconHistory,
   IconSparkles,
   IconChevronRight,
+  IconArrowUpRight,
+  IconFlame,
 } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
+import { SkeletonMetricGrid } from '@/components/ui/skeleton'
 
 type DashboardReport = {
-  summary: { orderCount: number; revenue: number; discounts: number; cogs: number; grossMargin: number; averageOrder: number }
-  topItems: Array<{ name: string; variant: string; quantity: number; revenue: number }>
+  summary: {
+    orderCount: number
+    revenue: number
+    discounts: number
+    cogs: number
+    grossMargin: number
+    averageOrder: number
+  }
+  topItems: Array<{ name: string; variant: string; quantity: number; revenue: number; categoryName?: string }>
   hourly: Array<{ hour: string; orderCount: number; revenue: number }>
+  dailyTrend?: Array<{ date: string; orderCount: number; revenue: number; cogs: number; grossMargin: number }>
+  categoryBreakdown?: Array<{ categoryName: string; quantity: number; revenue: number; percentage: number }>
+  sourcesBreakdown?: Array<{ source: string; count: number; revenue: number; percentage: number }>
   inventory?: Array<{ id: string; name: string; currentQuantity: number; reorderPoint: number; active: number | boolean }>
 }
 type DashboardTable = { status: 'trong' | 'dang_phuc_vu' | 'dat_truoc' | 'can_don' }
@@ -28,7 +41,6 @@ type DashboardFloor = { tables: DashboardTable[] }
 const money = (value: number) => `${Number(value || 0).toLocaleString('vi-VN')}₫`
 const max = (values: number[]) => Math.max(1, ...values)
 
-// Strictly 7 Modules (Removed KDS) & Strictly 5 Tokens (--ember/--moss/--amber/--stone/--espresso)
 const adminHubLinks = [
   {
     to: '/admin/menu',
@@ -98,8 +110,8 @@ const adminHubLinks = [
 export function AdminOverview({ report, floor }: { report?: DashboardReport; floor?: DashboardFloor }) {
   const summary = report?.summary
   const rawHours = report?.hourly ?? []
-  
-  // Construct full operating hours baseline (7:00 to 22:00)
+
+  // Construct operating timeline (07:00 to 22:00)
   const operatingTimeline = Array.from({ length: 16 }, (_, i) => {
     const hourNum = i + 7 // 7h -> 22h
     const hourStr = String(hourNum).padStart(2, '0')
@@ -112,19 +124,26 @@ export function AdminOverview({ report, floor }: { report?: DashboardReport; flo
   })
 
   const maxRevenue = max(operatingTimeline.map((item) => item.revenue))
+  const peakHour = operatingTimeline.reduce((prev, curr) => (curr.revenue > prev.revenue ? curr : prev), operatingTimeline[0])
+
+  const totalTables = floor?.tables.length ?? 0
   const tableCounts = {
     trong: floor?.tables.filter((table) => table.status === 'trong').length ?? 0,
     dang_phuc_vu: floor?.tables.filter((table) => table.status === 'dang_phuc_vu').length ?? 0,
     dat_truoc: floor?.tables.filter((table) => table.status === 'dat_truoc').length ?? 0,
     can_don: floor?.tables.filter((table) => table.status === 'can_don').length ?? 0,
   }
-  const lowInventory = (report?.inventory ?? []).filter((item) => Boolean(item.active) && Number(item.currentQuantity) <= Number(item.reorderPoint)).slice(0, 4)
+  const occupancyRate = totalTables > 0 ? Math.round((tableCounts.dang_phuc_vu / totalTables) * 100) : 0
+
+  const lowInventory = (report?.inventory ?? [])
+    .filter((item) => Boolean(item.active) && Number(item.currentQuantity) <= Number(item.reorderPoint))
+    .slice(0, 4)
 
   const topItemsTotal = (report?.topItems ?? []).reduce((acc, item) => acc + item.quantity, 0)
 
   return (
     <section className="dashboard-workspace grid gap-4 sm:gap-6 w-full min-w-0 max-w-full overflow-hidden pb-10">
-      {/* Welcome Banner */}
+      {/* Welcome & Fast Operations Banner */}
       <div className="overview-welcome-banner w-full min-w-0 max-w-full">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div className="w-10 h-10 rounded-2xl bg-[var(--espresso)] flex items-center justify-center text-[var(--crema)] shadow-md shrink-0">
@@ -134,10 +153,6 @@ export function AdminOverview({ report, floor }: { report?: DashboardReport; flo
             <h2 className="overview-welcome-title truncate">Trung Tâm Quản Trị & Vận Hành</h2>
             <p className="overview-welcome-desc truncate">Truy cập nhanh các phân hệ chức năng và theo dõi hiệu suất quán.</p>
           </div>
-        </div>
-        <div className="overview-date-chip shrink-0 self-start sm:self-auto">
-          <IconCalendarEvent size={15} stroke={1.75} />
-          <span>Hôm nay · {new Date().toLocaleDateString('vi-VN')}</span>
         </div>
       </div>
 
@@ -157,7 +172,7 @@ export function AdminOverview({ report, floor }: { report?: DashboardReport; flo
                   className={cn(
                     'w-10 h-10 sm:w-10 sm:h-10 rounded-xl border flex items-center justify-center shadow-2xs transition-transform duration-200 group-hover:scale-105 shrink-0',
                     link.bgColor,
-                    link.iconColor
+                    link.iconColor,
                   )}
                 >
                   <Icon size={20} stroke={1.8} />
@@ -191,36 +206,99 @@ export function AdminOverview({ report, floor }: { report?: DashboardReport; flo
         })}
       </div>
 
-      {!report && <p className="floor-feedback">Đang tải số liệu hôm nay…</p>}
+      {!report && <SkeletonMetricGrid count={4} label="Đang tải số liệu hôm nay…" />}
 
       {summary && (
         <>
-          {/* 4 KPI Metrics - Strict 2 cols on mobile, 4 on desktop */}
+          {/* Dashboard Section Header with Date Chip and Detailed Report link */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 pt-2">
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-[var(--char)] m-0">
+                Hiệu Suất Vận Hành & Doanh Số
+              </h3>
+              <p className="text-xs text-[#8c8177] m-0 mt-0.5">
+                Theo dõi các chỉ số tài chính, bàn phục vụ và kho nguyên liệu tức thời.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+              <div className="overview-date-chip">
+                <IconCalendarEvent size={15} stroke={1.75} />
+                <span>Hôm nay · {new Date().toLocaleDateString('vi-VN')}</span>
+              </div>
+              <Link
+                to="/admin/reports"
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold bg-[#1c1512] text-white hover:bg-[#2b1f1a] transition-colors"
+              >
+                <span>Báo cáo chi tiết</span>
+                <IconArrowUpRight size={14} />
+              </Link>
+            </div>
+          </div>
+
+          {/* 4 Core Financial KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 w-full min-w-0 max-w-full">
-            <article className="p-3 sm:p-4 rounded-xl border border-[#e5ddd6] bg-white flex flex-col gap-0.5 shadow-2xs min-w-0 max-w-full overflow-hidden">
-              <span className="text-[10.5px] sm:text-xs font-bold text-[#8c8177] uppercase tracking-wider truncate">Doanh thu hôm nay</span>
-              <strong className="text-base sm:text-2xl font-bold font-mono tabular-nums text-[var(--ember)] truncate">{money(summary.revenue)}</strong>
-              <small className="text-[10.5px] sm:text-xs text-[#8c8177] truncate">Tiền mặt hoàn tất</small>
+            <article className="p-3.5 sm:p-4.5 rounded-2xl border border-[#e5ddd6] bg-white flex flex-col justify-between shadow-2xs min-w-0 max-w-full overflow-hidden hover:border-[#ded1c0] transition-colors">
+              <div>
+                <span className="text-[10.5px] sm:text-xs font-bold text-[#8c8177] uppercase tracking-wider block truncate">
+                  Doanh thu hôm nay
+                </span>
+                <strong className="text-lg sm:text-2xl font-bold font-mono tabular-nums text-[var(--ember)] block truncate mt-1">
+                  {money(summary.revenue)}
+                </strong>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-[#f4efe8] flex items-center justify-between text-[11px] text-[#8c8177]">
+                <span>Thực nhận POS</span>
+                <span className="font-semibold font-mono text-[var(--char)]">{summary.orderCount} đơn</span>
+              </div>
             </article>
 
-            <article className="p-3 sm:p-4 rounded-xl border border-[#e5ddd6] bg-white flex flex-col gap-0.5 shadow-2xs min-w-0 max-w-full overflow-hidden">
-              <span className="text-[10.5px] sm:text-xs font-bold text-[#8c8177] uppercase tracking-wider truncate">Đơn đã bán</span>
-              <strong className="text-base sm:text-2xl font-bold font-mono tabular-nums text-[var(--char)] truncate">{summary.orderCount}</strong>
-              <small className="text-[10.5px] sm:text-xs text-[#8c8177] truncate">Giá trị TB {money(summary.averageOrder)}</small>
+            <article className="p-3.5 sm:p-4.5 rounded-2xl border border-[#e5ddd6] bg-white flex flex-col justify-between shadow-2xs min-w-0 max-w-full overflow-hidden hover:border-[#ded1c0] transition-colors">
+              <div>
+                <span className="text-[10.5px] sm:text-xs font-bold text-[#8c8177] uppercase tracking-wider block truncate">
+                  Giá trị TB / Đơn (AOV)
+                </span>
+                <strong className="text-lg sm:text-2xl font-bold font-mono tabular-nums text-[var(--char)] block truncate mt-1">
+                  {money(summary.averageOrder)}
+                </strong>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-[#f4efe8] flex items-center justify-between text-[11px] text-[#8c8177]">
+                <span>Giảm giá</span>
+                <span className="font-semibold font-mono text-[#8c8177]">{money(summary.discounts)}</span>
+              </div>
             </article>
 
-            <article className="p-3 sm:p-4 rounded-xl border border-[#e5ddd6] bg-white flex flex-col gap-0.5 shadow-2xs min-w-0 max-w-full overflow-hidden">
-              <span className="text-[10.5px] sm:text-xs font-bold text-[#8c8177] uppercase tracking-wider truncate">Giảm giá & Chiết khấu</span>
-              <strong className="text-base sm:text-2xl font-bold font-mono tabular-nums text-[#8c8177] truncate">{money(summary.discounts)}</strong>
-              <small className="text-[10.5px] sm:text-xs text-[#8c8177] truncate">COGS {money(summary.cogs)}</small>
+            <article className="p-3.5 sm:p-4.5 rounded-2xl border border-[#e5ddd6] bg-white flex flex-col justify-between shadow-2xs min-w-0 max-w-full overflow-hidden hover:border-[#ded1c0] transition-colors">
+              <div>
+                <span className="text-[10.5px] sm:text-xs font-bold text-[#8c8177] uppercase tracking-wider block truncate">
+                  Chi phí vốn (COGS)
+                </span>
+                <strong className="text-lg sm:text-2xl font-bold font-mono tabular-nums text-[var(--char)] block truncate mt-1">
+                  {money(summary.cogs)}
+                </strong>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-[#f4efe8] flex items-center justify-between text-[11px] text-[#8c8177]">
+                <span>Tỷ lệ giá vốn</span>
+                <span className="font-semibold font-mono text-[var(--char)]">
+                  {summary.revenue ? `${Math.round((summary.cogs / summary.revenue) * 100)}%` : '0%'}
+                </span>
+              </div>
             </article>
 
-            <article className="p-3 sm:p-4 rounded-xl border border-[#e5ddd6] bg-white flex flex-col gap-0.5 shadow-2xs min-w-0 max-w-full overflow-hidden">
-              <span className="text-[10.5px] sm:text-xs font-bold text-[#8c8177] uppercase tracking-wider truncate">Biên lợi nhuận gộp</span>
-              <strong className="text-base sm:text-2xl font-bold font-mono tabular-nums text-[var(--moss)] truncate">{money(summary.grossMargin)}</strong>
-              <small className="text-[10.5px] sm:text-xs text-[#8c8177] truncate">
-                Tỷ suất {summary.revenue ? `${Math.round((summary.grossMargin / summary.revenue) * 100)}%` : '0%'}
-              </small>
+            <article className="p-3.5 sm:p-4.5 rounded-2xl border border-[#e5ddd6] bg-white flex flex-col justify-between shadow-2xs min-w-0 max-w-full overflow-hidden hover:border-[#ded1c0] transition-colors">
+              <div>
+                <span className="text-[10.5px] sm:text-xs font-bold text-[#8c8177] uppercase tracking-wider block truncate">
+                  Lợi nhuận gộp
+                </span>
+                <strong className="text-lg sm:text-2xl font-bold font-mono tabular-nums text-[var(--moss)] block truncate mt-1">
+                  {money(summary.grossMargin)}
+                </strong>
+              </div>
+              <div className="mt-2.5 pt-2 border-t border-[#f4efe8] flex items-center justify-between text-[11px] text-[#8c8177]">
+                <span>Tỷ suất biên</span>
+                <span className="font-bold font-mono text-emerald-800">
+                  {summary.revenue ? `${Math.round((summary.grossMargin / summary.revenue) * 100)}%` : '0%'}
+                </span>
+              </div>
             </article>
           </div>
 
@@ -230,8 +308,20 @@ export function AdminOverview({ report, floor }: { report?: DashboardReport; flo
             <section className="p-4 sm:p-5 rounded-2xl border border-[#e5ddd6] bg-white shadow-2xs min-w-0 max-w-full overflow-hidden flex flex-col justify-between lg:col-span-7">
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm sm:text-base font-bold text-[var(--char)] truncate">Doanh thu theo khung giờ</h3>
-                  <p className="text-xs text-[#8c8177] truncate">Phân bổ doanh thu theo khung giờ hoạt động (07:00 – 22:00).</p>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-bold text-[var(--char)] truncate m-0">
+                      Doanh thu theo khung giờ
+                    </h3>
+                    {peakHour && peakHour.revenue > 0 && (
+                      <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-bold bg-amber-50 text-amber-900 border border-amber-200">
+                        <IconFlame size={12} className="text-amber-600" />
+                        Cao điểm: {peakHour.hour}h ({money(peakHour.revenue)})
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#8c8177] truncate m-0 mt-0.5">
+                    Phân bổ luồng đơn và doanh thu trong ngày (07:00 – 22:00).
+                  </p>
                 </div>
                 <span className="catalog-status-pill is-active shrink-0 text-xs">
                   <span className="catalog-status-dot dot-active" />
@@ -239,27 +329,39 @@ export function AdminOverview({ report, floor }: { report?: DashboardReport; flo
                 </span>
               </div>
 
-              <div className="w-full max-w-full min-w-0 overflow-x-auto pb-1 block">
-                <div className="flex items-end gap-2 min-w-[420px] h-40 pt-2 px-1 border-b border-[#eee8e0]">
+              <div className="w-full max-w-full min-w-0 overflow-x-auto pb-1 block scrollbar-none">
+                <div className="flex items-end gap-1.5 sm:gap-2 min-w-[440px] h-44 pt-2 px-1 border-b border-[#eee8e0]">
                   {operatingTimeline.map((item) => {
                     const hasRevenue = item.revenue > 0
+                    const isPeak = hasRevenue && item.hour === peakHour?.hour
                     const heightPercent = hasRevenue ? Math.max(14, Math.round((item.revenue / maxRevenue) * 100)) : 4
                     return (
                       <div
-                        className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end cursor-pointer"
+                        className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group cursor-pointer"
                         key={item.hour}
                         title={`${item.hour}:00 · ${money(item.revenue)} (${item.orderCount} đơn)`}
                       >
-                        <div className="w-full max-w-7 h-32 flex items-end">
+                        <div className="w-full max-w-7 h-34 flex items-end relative">
                           <div
                             className={cn(
-                              'w-full rounded-t transition-all duration-300',
-                              hasRevenue ? 'bg-[var(--ember)] opacity-85 hover:opacity-100' : 'bg-[#e5ddd6] opacity-35'
+                              'w-full rounded-t-md transition-all duration-300',
+                              isPeak
+                                ? 'bg-gradient-to-t from-amber-600 to-amber-500 shadow-xs'
+                                : hasRevenue
+                                  ? 'bg-[var(--ember)] opacity-85 group-hover:opacity-100'
+                                  : 'bg-[#e5ddd6] opacity-35',
                             )}
                             style={{ height: `${heightPercent}%` }}
                           />
                         </div>
-                        <span className="text-[11px] font-mono tabular-nums text-[#8c8177]">{item.hour}h</span>
+                        <span
+                          className={cn(
+                            'text-[10.5px] font-mono tabular-nums',
+                            isPeak ? 'font-bold text-amber-900' : 'text-[#8c8177]',
+                          )}
+                        >
+                          {item.hour}h
+                        </span>
                       </div>
                     )
                   })}
@@ -271,34 +373,51 @@ export function AdminOverview({ report, floor }: { report?: DashboardReport; flo
             <section className="p-4 sm:p-5 rounded-2xl border border-[#e5ddd6] bg-white shadow-2xs min-w-0 max-w-full overflow-hidden flex flex-col justify-between lg:col-span-5">
               <div className="flex items-center justify-between gap-2 mb-3">
                 <div className="min-w-0 flex-1">
-                  <h3 className="text-sm sm:text-base font-bold text-[var(--char)] truncate">Top món bán chạy</h3>
-                  <p className="text-xs text-[#8c8177] truncate">Xếp hạng theo số lượng đơn bán.</p>
+                  <h3 className="text-sm sm:text-base font-bold text-[var(--char)] truncate m-0">Top món bán chạy</h3>
+                  <p className="text-xs text-[#8c8177] truncate m-0 mt-0.5">Xếp hạng theo số lượng đơn bán hôm nay.</p>
                 </div>
-                <span className="text-xs font-mono tabular-nums text-[#8c8177] font-semibold shrink-0">{topItemsTotal} ly đã bán</span>
+                <span className="text-xs font-mono tabular-nums text-[#8c8177] font-semibold shrink-0">
+                  {topItemsTotal} ly đã bán
+                </span>
               </div>
 
-              <div className="grid gap-2.5 w-full min-w-0">
+              <div className="grid gap-2 w-full min-w-0">
                 {(report?.topItems ?? []).slice(0, 5).map((item, index) => {
                   const maxQty = max((report?.topItems ?? []).map((e) => e.quantity))
                   const widthPercent = Math.max(12, Math.round((item.quantity / maxQty) * 100))
                   return (
-                    <div className="overview-top-row flex items-center gap-2.5 p-2 rounded-xl border border-[#ede6de] bg-white w-full min-w-0" key={`${item.name}-${item.variant}`}>
-                      <span className={cn('overview-rank-badge', index === 0 && 'is-gold', index === 1 && 'is-silver', index === 2 && 'is-bronze')}>
+                    <div
+                      className="overview-top-row flex items-center gap-2.5 p-2.5 rounded-xl border border-[#ede6de] bg-white w-full min-w-0 hover:border-[#ded6cb] transition-colors"
+                      key={`${item.name}-${item.variant}`}
+                    >
+                      <span
+                        className={cn(
+                          'overview-rank-badge',
+                          index === 0 && 'is-gold',
+                          index === 1 && 'is-silver',
+                          index === 2 && 'is-bronze',
+                        )}
+                      >
                         #{index + 1}
                       </span>
                       <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="flex justify-between items-center mb-1 gap-2">
-                          <strong className="text-xs text-[var(--char)] truncate">{item.name}</strong>
+                          <strong className="text-xs font-bold text-[var(--char)] truncate">{item.name}</strong>
                           <span className="text-xs font-bold font-mono tabular-nums text-[var(--ember)] shrink-0">
                             {money(item.revenue)}
                           </span>
                         </div>
                         <div className="overview-prog-bar w-full h-1.5 bg-[#f0ebe4] rounded-full overflow-hidden">
-                          <div className="overview-prog-fill h-full bg-[var(--ember)] rounded-full" style={{ width: `${widthPercent}%` }} />
+                          <div
+                            className="overview-prog-fill h-full bg-[var(--ember)] rounded-full"
+                            style={{ width: `${widthPercent}%` }}
+                          />
                         </div>
                         <div className="flex justify-between items-center mt-1 text-[11px] text-[#8c8177] gap-2">
                           <span className="truncate">
-                            {item.variant && !['Mặc định', 'Default', 'Phần'].includes(item.variant) ? `Size ${item.variant}` : 'Cỡ chuẩn'}
+                            {item.variant && !['Mặc định', 'Default', 'Phần'].includes(item.variant)
+                              ? `Size ${item.variant}`
+                              : 'Cỡ chuẩn'}
                           </span>
                           <span className="font-mono tabular-nums font-semibold text-[var(--char)] shrink-0">
                             Đã bán: {item.quantity} ly
@@ -318,34 +437,39 @@ export function AdminOverview({ report, floor }: { report?: DashboardReport; flo
           {/* Secondary 3-Column Widgets */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 w-full min-w-0 max-w-full">
             {/* Live Table Status */}
-            <section className="p-4 sm:p-5 rounded-2xl border border-[#e5ddd6] bg-white shadow-2xs min-w-0 max-w-full overflow-hidden">
-              <div className="mb-3">
-                <h3 className="text-sm font-bold text-[var(--char)]">Trạng thái bàn hiện tại</h3>
-                <p className="text-xs text-[#8c8177]">Tình trạng phục vụ thực tế.</p>
+            <section className="p-4 sm:p-5 rounded-2xl border border-[#e5ddd6] bg-white shadow-2xs min-w-0 max-w-full overflow-hidden flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--char)] m-0">Trạng thái bàn</h3>
+                  <p className="text-xs text-[#8c8177] m-0 mt-0.5">Tình trạng phục vụ thực tế.</p>
+                </div>
+                <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-[#f4efe8] text-[#61574f]">
+                  Lấp đầy {occupancyRate}%
+                </span>
               </div>
               <div className="grid grid-cols-2 gap-2 w-full min-w-0">
-                <div className="p-2.5 rounded-lg border border-[#ede6de] bg-white flex items-center gap-2 min-w-0">
+                <div className="p-2.5 rounded-xl border border-[#ede6de] bg-white flex items-center gap-2 min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#22c55e] shrink-0" />
                   <div className="min-w-0">
                     <span className="text-[11px] text-[#8c8177] block truncate">Trống</span>
                     <strong className="text-base font-mono tabular-nums">{tableCounts.trong}</strong>
                   </div>
                 </div>
-                <div className="p-2.5 rounded-lg border border-[#ede6de] bg-white flex items-center gap-2 min-w-0">
+                <div className="p-2.5 rounded-xl border border-[#ede6de] bg-white flex items-center gap-2 min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#ef4444] shrink-0" />
                   <div className="min-w-0">
                     <span className="text-[11px] text-[#8c8177] block truncate">Đang phục vụ</span>
                     <strong className="text-base font-mono tabular-nums">{tableCounts.dang_phuc_vu}</strong>
                   </div>
                 </div>
-                <div className="p-2.5 rounded-lg border border-[#ede6de] bg-white flex items-center gap-2 min-w-0">
+                <div className="p-2.5 rounded-xl border border-[#ede6de] bg-white flex items-center gap-2 min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#f59e0b] shrink-0" />
                   <div className="min-w-0">
                     <span className="text-[11px] text-[#8c8177] block truncate">Đặt trước</span>
                     <strong className="text-base font-mono tabular-nums">{tableCounts.dat_truoc}</strong>
                   </div>
                 </div>
-                <div className="p-2.5 rounded-lg border border-[#ede6de] bg-white flex items-center gap-2 min-w-0">
+                <div className="p-2.5 rounded-xl border border-[#ede6de] bg-white flex items-center gap-2 min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#9ca3af] shrink-0" />
                   <div className="min-w-0">
                     <span className="text-[11px] text-[#8c8177] block truncate">Cần dọn</span>
@@ -355,34 +479,49 @@ export function AdminOverview({ report, floor }: { report?: DashboardReport; flo
               </div>
             </section>
 
-            {/* Payment Method Distribution */}
-            <section className="p-4 sm:p-5 rounded-2xl border border-[#e5ddd6] bg-white shadow-2xs min-w-0 max-w-full overflow-hidden">
+            {/* Channels & Payment Sources */}
+            <section className="p-4 sm:p-5 rounded-2xl border border-[#e5ddd6] bg-white shadow-2xs min-w-0 max-w-full overflow-hidden flex flex-col justify-between">
               <div className="mb-3">
-                <h3 className="text-sm font-bold text-[var(--char)]">Phương thức thanh toán</h3>
-                <p className="text-xs text-[#8c8177]">Cơ cấu nguồn thu hôm nay.</p>
+                <h3 className="text-sm font-bold text-[var(--char)] m-0">Kênh bán & Nguồn thu</h3>
+                <p className="text-xs text-[#8c8177] m-0 mt-0.5">Cơ cấu nguồn thu hôm nay.</p>
               </div>
-              <div className="p-3 bg-white border border-[#ede6de] rounded-lg flex flex-col gap-2 w-full min-w-0">
-                <div className="flex justify-between items-center text-xs gap-2">
-                  <span className="flex items-center gap-1.5 font-medium truncate">
-                    <IconCash size={16} stroke={1.75} className="text-[var(--ember)] shrink-0" /> Tiền mặt (POS)
-                  </span>
-                  <strong className="font-mono tabular-nums text-[var(--char)] shrink-0">{money(summary.revenue)} (100%)</strong>
+              <div className="space-y-2">
+                <div className="p-2.5 bg-[#fbf9f6] border border-[#ede6de] rounded-xl flex flex-col gap-1.5 w-full min-w-0">
+                  <div className="flex justify-between items-center text-xs gap-2">
+                    <span className="flex items-center gap-1.5 font-medium text-[var(--char)] truncate">
+                      <IconCash size={16} stroke={1.75} className="text-[var(--ember)] shrink-0" />
+                      <span>Tiền mặt (POS)</span>
+                    </span>
+                    <strong className="font-mono tabular-nums text-[var(--char)] shrink-0">{money(summary.revenue)}</strong>
+                  </div>
+                  <div className="w-full h-1.5 bg-[#ede6de] rounded-full overflow-hidden">
+                    <div className="h-full bg-[var(--ember)] rounded-full" style={{ width: '100%' }} />
+                  </div>
                 </div>
-                <div className="w-full h-2 bg-[#f0ebe4] rounded-full overflow-hidden">
-                  <div className="h-full bg-[var(--ember)] rounded-full" style={{ width: '100%' }} />
+                <div className="flex items-center justify-between text-[11px] text-[#8c8177] px-1">
+                  <span>Hình thức: Trực tiếp tại quầy</span>
+                  <span className="font-semibold text-[var(--char)] font-mono">{summary.orderCount} đơn</span>
                 </div>
               </div>
             </section>
 
             {/* Inventory Alerts */}
-            <section className="p-4 sm:p-5 rounded-2xl border border-[#e5ddd6] bg-white shadow-2xs min-w-0 max-w-full overflow-hidden">
-              <div className="mb-3">
-                <h3 className="text-sm font-bold text-[var(--char)]">Cảnh báo tồn kho</h3>
-                <p className="text-xs text-[#8c8177]">Nguyên liệu chạm ngưỡng đặt hàng.</p>
+            <section className="p-4 sm:p-5 rounded-2xl border border-[#e5ddd6] bg-white shadow-2xs min-w-0 max-w-full overflow-hidden flex flex-col justify-between">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h3 className="text-sm font-bold text-[var(--char)] m-0">Cảnh báo kho</h3>
+                  <p className="text-xs text-[#8c8177] m-0 mt-0.5">Nguyên liệu chạm ngưỡng định mức.</p>
+                </div>
+                <Link to="/admin/inventory" className="text-xs font-bold text-[var(--ember)] hover:underline">
+                  Kho →
+                </Link>
               </div>
               <div className="grid gap-2 w-full min-w-0">
                 {lowInventory.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-2 rounded-lg bg-[#fff9f5] border border-[#fbdcd0] text-xs gap-2 min-w-0">
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between p-2 rounded-xl bg-[#fff9f5] border border-[#fbdcd0] text-xs gap-2 min-w-0"
+                  >
                     <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
                       <IconAlertTriangle size={15} stroke={1.75} className="text-[var(--ember)] shrink-0" />
                       <span className="font-semibold text-[var(--ember)] truncate">{item.name}</span>
@@ -393,9 +532,9 @@ export function AdminOverview({ report, floor }: { report?: DashboardReport; flo
                   </div>
                 ))}
                 {!lowInventory.length && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#f4f9f4] border border-[#d2ead2] text-xs text-[#2d6a4f] min-w-0">
+                  <div className="flex items-center gap-2 p-2.5 rounded-xl bg-[#f4f9f4] border border-[#d2ead2] text-xs text-[#2d6a4f] min-w-0">
                     <IconCircleCheck size={16} stroke={1.75} className="shrink-0" />
-                    <span className="truncate">Kho hàng ổn định, chưa có cảnh báo.</span>
+                    <span className="truncate">Kho hàng ổn định, đủ định mức.</span>
                   </div>
                 )}
               </div>

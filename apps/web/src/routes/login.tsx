@@ -14,7 +14,7 @@ export const Route = createFileRoute('/login')({
 })
 
 function Login() {
-  const [email, setEmail] = useState('')
+  const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -28,7 +28,7 @@ function Login() {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       })
       const body = (await response.json()) as { message?: string }
       if (!response.ok) {
@@ -51,14 +51,15 @@ function Login() {
         <p>Chỉ nhân viên được cấp tài khoản mới có thể tiếp tục.</p>
 
         <Field.Root className="login-field">
-          <Field.Label>Email</Field.Label>
+          <Field.Label>Tên đăng nhập</Field.Label>
           <Input
             size="md"
             required
-            autoComplete="email"
-            type="email"
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
+            autoComplete="username"
+            type="text"
+            placeholder="VD: admin, cashier..."
+            value={username}
+            onChange={(event) => setUsername(event.target.value)}
           />
         </Field.Root>
 

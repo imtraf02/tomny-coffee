@@ -1,0 +1,50 @@
+export const PERMISSION_LABELS: Record<string, string> = {
+  'pos.read': 'Truy cập POS',
+  'pos.checkout': 'Thanh toán đơn hàng',
+  'pos.cash': 'Quản lý tiền mặt',
+  'pos.discount': 'Áp dụng chiết khấu',
+  'pos.cancel': 'Hủy đơn hàng',
+  'pos.reprint': 'In lại hóa đơn',
+  'menu.read': 'Xem danh mục món',
+  'menu.manage': 'Quản lý thực đơn & giá',
+  'floor_plan.read': 'Xem sơ đồ bàn',
+  'floor_plan.manage': 'Chỉnh sửa sơ đồ bàn',
+  'tables.operate': 'Thao tác mở/chuyển bàn',
+  'inventory.read': 'Xem tồn kho & định mức',
+  'inventory.manage': 'Nhập/xuất & kiểm kho',
+  'inventory.stocktake': 'Kiểm kê kho',
+  'staff.read': 'Xem danh sách nhân sự',
+  'staff.manage': 'Phân quyền & mời nhân viên',
+  'payroll.manage': 'Chốt lương nhân viên',
+  'reports.read': 'Xem báo cáo tài chính',
+  'reports.export': 'Xuất báo cáo Excel/PDF',
+  'settings.manage': 'Quản trị hệ thống',
+  'kds.read': 'Xem màn hình pha chế (KDS)',
+  'kds.manage': 'Cập nhật trạng thái pha chế',
+  'orders.read': 'Xem lịch sử hóa đơn',
+  'orders.manage': 'Xử lý hoàn trả đơn',
+  'orders.cancel.paid.approve': 'Duyệt hủy & hoàn tiền đơn đã thanh toán',
+  'audit.read': 'Xem nhật ký hoạt động',
+  'timeclock.use': 'Chấm công ca làm',
+  'timeclock.manage': 'Duyệt chấm công',
+}
+
+export const GROUP_TITLES: Record<string, string> = {
+  pos: 'POS & Bán hàng',
+  menu: 'Sản phẩm & Menu',
+  inventory: 'Kho & Nguyên liệu',
+  floor_plan: 'Sơ đồ bàn',
+  tables: 'Vận hành bàn',
+  orders: 'Đơn hàng & Doanh thu',
+  staff: 'Nhân sự & Phân quyền',
+  payroll: 'Lương nhân viên',
+  timeclock: 'Chấm công ca làm',
+  reports: 'Báo cáo tài chính',
+  audit: 'Nhật ký kiểm toán',
+  kds: 'Phòng pha chế (KDS)',
+  settings: 'Quản trị hệ thống',
+}
+
+export function permissionLabel(code: string, fallback?: string): string {
+  return PERMISSION_LABELS[code] ?? fallback ?? code
+}

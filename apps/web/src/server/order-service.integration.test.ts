@@ -1,7 +1,7 @@
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { env } from 'cloudflare:workers'
 import { applyMigrations, seedCategory, seedCombo, seedModifierGroup, seedProduct, seedTable, seedUser, tableStatus } from './test-fixture'
-import { addLine, cancelDraft, cancelOrder, createDraft, getOrderDetail, listDrafts, mergeDrafts, moveDraft, payDraftCash, reserveOrderNumber, splitDraft, updateNote, verifyManagerCredentials, voidLine } from './order-service'
+import { addLine, cancelDraft, cancelOrder, createDraft, getOrderDetail, linkTable, listDrafts, mergeDrafts, moveDraft, payDraftCash, reserveOrderNumber, splitDraft, unlinkTable, updateNote, verifyManagerCredentials, voidLine } from './order-service'
 import { saveProduct } from './catalog-service'
 
 async function expectError(promise: Promise<unknown>, status: number, message?: string) {
@@ -33,6 +33,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await env.DB.batch([
+    env.DB.prepare('DELETE FROM order_tables'),
     env.DB.prepare('DELETE FROM order_line_modifiers'),
     env.DB.prepare('DELETE FROM order_lines'),
     env.DB.prepare('DELETE FROM payments'),
@@ -280,5 +281,99 @@ describe('order-service integration', () => {
     const inactive = await seedUser(env.DB, 'inactive@test.dev', 'Nghỉ việc', 'pass', ['orders.cancel.paid.approve'])
     await env.DB.prepare('UPDATE users SET active = 0 WHERE id = ?').bind(inactive.id).run()
     await expectError(verifyManagerCredentials(env.DB, { email: inactive.email, password: 'pass' }), 403)
+  })
+
+  describe('table grouping (gộp bàn)', () => {
+    it('creates a grouped order spanning multiple tables and marks all of them occupied', async () => {
+      const draft = await createDraft(env.DB, cashier, {
+        source: 'table',
+        tableIds: [tableA, tableB],
+        note: 'Bàn ghép đoàn đông',
+        lines: [{ variantId: coffee.variants[0].id, quantity: 2, modifierIds: [] }],
+        idempotencyKey: 'group-draft-1',
+      })
+      expect(draft.tableIds).toEqual([tableA, tableB])
+      expect(await tableStatus(env.DB, tableA)).toBe('dang_phuc_vu')
+      expect(await tableStatus(env.DB, tableB)).toBe('dang_phuc_vu')
+
+      // Creating another order on either table is blocked
+      await expectError(
+        createDraft(env.DB, cashier, { source: 'table', tableId: tableB, note: '', lines: [{ variantId: tea.variants[0].id, quantity: 1, modifierIds: [] }], idempotencyKey: 'blocked-1' }),
+        409,
+        'đã có ticket',
+      )
+
+      // Paying the order frees ALL grouped tables
+      await payDraftCash(env.DB, cashier, { orderId: draft.id, expectedVersion: draft.version, idempotencyKey: 'pay-group-1', deviceId: 'dev-1', receivedAmount: 60_000 })
+      expect(await tableStatus(env.DB, tableA)).toBe('trong')
+      expect(await tableStatus(env.DB, tableB)).toBe('trong')
+    })
+
+    it('links an empty table to an existing open order', async () => {
+      const draft = await createDraft(env.DB, cashier, {
+        source: 'table',
+        tableId: tableA,
+        note: '',
+        lines: [{ variantId: coffee.variants[0].id, quantity: 1, modifierIds: [] }],
+        idempotencyKey: 'single-draft-1',
+      })
+      expect(await tableStatus(env.DB, tableB)).toBe('trong')
+
+      const linked = await linkTable(env.DB, cashier, { orderId: draft.id, expectedVersion: draft.version, tableId: tableB })
+      expect(linked.tableIds).toContain(tableA)
+      expect(linked.tableIds).toContain(tableB)
+      expect(await tableStatus(env.DB, tableA)).toBe('dang_phuc_vu')
+      expect(await tableStatus(env.DB, tableB)).toBe('dang_phuc_vu')
+
+      // Cannot link the same table again
+      await expectError(
+        linkTable(env.DB, cashier, { orderId: draft.id, expectedVersion: linked.version, tableId: tableB }),
+        409,
+        'đã nằm trong đơn',
+      )
+    })
+
+    it('unlinks a secondary table and frees it, but blocks unlinking primary table when order has active lines', async () => {
+      const draft = await createDraft(env.DB, cashier, {
+        source: 'table',
+        tableIds: [tableA, tableB],
+        note: '',
+        lines: [{ variantId: coffee.variants[0].id, quantity: 2, modifierIds: [] }],
+        idempotencyKey: 'unlink-test-1',
+      })
+
+      // Attempting to remove primary table tableA while order has lines is blocked
+      await expectError(
+        unlinkTable(env.DB, cashier, { orderId: draft.id, expectedVersion: draft.version, tableId: tableA }),
+        409,
+        'Không thể bớt bàn chính',
+      )
+
+      // Removing secondary table tableB succeeds
+      const unlinked = await unlinkTable(env.DB, cashier, { orderId: draft.id, expectedVersion: draft.version, tableId: tableB })
+      expect(unlinked.tableIds).toEqual([tableA])
+      expect(await tableStatus(env.DB, tableA)).toBe('dang_phuc_vu')
+      expect(await tableStatus(env.DB, tableB)).toBe('trong')
+    })
+
+    it('lists drafts with multi-table aggregation', async () => {
+      await createDraft(env.DB, cashier, {
+        source: 'table',
+        tableIds: [tableA, tableB],
+        note: 'Đoàn khách',
+        lines: [{ variantId: tea.variants[0].id, quantity: 3, modifierIds: [] }],
+        idempotencyKey: 'list-group-1',
+      })
+
+      const drafts = await listDrafts(env.DB, null)
+      expect(drafts).toHaveLength(1)
+      expect(drafts[0].tableIds).toEqual([tableA, tableB])
+      expect(drafts[0].tableNames).toHaveLength(2)
+
+      // Filtering by secondary table still finds the grouped order
+      const byTableB = await listDrafts(env.DB, tableB)
+      expect(byTableB).toHaveLength(1)
+      expect(byTableB[0].tableIds).toEqual([tableA, tableB])
+    })
   })
 })

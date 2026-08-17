@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createFileRoute, redirect, Link } from '@tanstack/react-router'
 import { useState, type FormEvent } from 'react'
 import {
-  IconMail,
+  IconUser,
   IconShieldCheck,
   IconKey,
   IconLogout,
@@ -17,10 +17,12 @@ import {
   IconCheck,
 } from '@tabler/icons-react'
 import { Dialog } from '@/components/ui/dialog'
+import { Drawer } from '@/components/ui/drawer'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { PrimaryButton, SecondaryButton } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/lib/use-mobile'
 import { readSession } from '../server/session'
 
 export const Route = createFileRoute('/account')({
@@ -64,6 +66,7 @@ const permissionLabels: Record<string, string> = {
 }
 
 function AccountPage() {
+  const isMobile = useIsMobile()
   const { user } = Route.useRouteContext()
   const queryClient = useQueryClient()
 
@@ -184,8 +187,8 @@ function AccountPage() {
                 </span>
               </div>
               <p className="text-xs text-[#8c8177] mt-1 flex items-center gap-1.5 font-medium">
-                <IconMail size={14} stroke={1.75} />
-                <span>{user?.email}</span>
+                <IconUser size={14} stroke={1.75} />
+                <span>@{user?.username || (user?.email ? user.email.split('@')[0] : 'user')}</span>
               </p>
             </div>
           </div>
@@ -348,91 +351,173 @@ function AccountPage() {
         </div>
       </div>
 
-      {/* Change Password Dialog Modal */}
-      <Dialog.Root open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-        <Dialog.Portal>
-          <Dialog.Backdrop className="dialog-backdrop" />
-          <Dialog.Viewport className="dialog-viewport">
-            <Dialog.Popup className="editor-dialog" style={{ maxWidth: '440px' }}>
-              <div className="flex items-start justify-between pb-3 border-b border-[#ede6de]">
+      {/* Change Password Dialog / Drawer */}
+      {passwordDialogOpen && (
+        isMobile ? (
+          <Drawer.Root open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+            <Drawer.Content direction="bottom" className="w-full max-h-[85dvh] p-0">
+              <Drawer.Header className="px-5 pt-3 pb-3 border-b border-[#ede6de]">
                 <div>
-                  <Dialog.Title className="text-lg font-bold text-[var(--char)]">Đổi mật khẩu tài khoản</Dialog.Title>
-                  <Dialog.Description className="text-xs text-[#8c8177] mt-0.5">
+                  <Drawer.Title className="text-lg font-bold text-[var(--char)]">Đổi mật khẩu tài khoản</Drawer.Title>
+                  <Drawer.Description className="text-xs text-[#8c8177] mt-0.5">
                     Mật khẩu mới yêu cầu độ dài tối thiểu 10 ký tự.
-                  </Dialog.Description>
+                  </Drawer.Description>
                 </div>
-                <Dialog.Close aria-label="Đóng" className="p-1 rounded-md text-[#8c8177] hover:text-[var(--char)] hover:bg-[#f0ebe4] transition-colors">
-                  ✕
-                </Dialog.Close>
-              </div>
+              </Drawer.Header>
+              <Drawer.Body className="px-5 py-4">
+                <form onSubmit={(event) => void handleChangePassword(event)} className="flex flex-col gap-3">
+                  <Field.Root>
+                    <Field.Label className="text-xs font-semibold text-[var(--char)]">Mật khẩu hiện tại</Field.Label>
+                    <Input
+                      size="md"
+                      required
+                      type="password"
+                      autoComplete="current-password"
+                      value={currentPassword}
+                      onChange={(event) => setCurrentPassword(event.target.value)}
+                      className="mt-1"
+                    />
+                  </Field.Root>
 
-              <form onSubmit={(event) => void handleChangePassword(event)} className="mt-4 flex flex-col gap-3">
-                <Field.Root>
-                  <Field.Label className="text-xs font-semibold text-[var(--char)]">Mật khẩu hiện tại</Field.Label>
-                  <Input
-                    size="md"
-                    required
-                    type="password"
-                    autoComplete="current-password"
-                    value={currentPassword}
-                    onChange={(event) => setCurrentPassword(event.target.value)}
-                    className="mt-1"
-                  />
-                </Field.Root>
+                  <Field.Root>
+                    <Field.Label className="text-xs font-semibold text-[var(--char)]">Mật khẩu mới</Field.Label>
+                    <Input
+                      size="md"
+                      required
+                      minLength={10}
+                      type="password"
+                      autoComplete="new-password"
+                      value={newPassword}
+                      onChange={(event) => setNewPassword(event.target.value)}
+                      className="mt-1"
+                    />
+                  </Field.Root>
 
-                <Field.Root>
-                  <Field.Label className="text-xs font-semibold text-[var(--char)]">Mật khẩu mới</Field.Label>
-                  <Input
-                    size="md"
-                    required
-                    minLength={10}
-                    type="password"
-                    autoComplete="new-password"
-                    value={newPassword}
-                    onChange={(event) => setNewPassword(event.target.value)}
-                    className="mt-1"
-                  />
-                </Field.Root>
+                  <Field.Root>
+                    <Field.Label className="text-xs font-semibold text-[var(--char)]">Xác nhận mật khẩu mới</Field.Label>
+                    <Input
+                      size="md"
+                      required
+                      minLength={10}
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmPassword}
+                      onChange={(event) => setConfirmPassword(event.target.value)}
+                      className="mt-1"
+                    />
+                  </Field.Root>
 
-                <Field.Root>
-                  <Field.Label className="text-xs font-semibold text-[var(--char)]">Xác nhận mật khẩu mới</Field.Label>
-                  <Input
-                    size="md"
-                    required
-                    minLength={10}
-                    type="password"
-                    autoComplete="new-password"
-                    value={confirmPassword}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    className="mt-1"
-                  />
-                </Field.Root>
+                  {passwordError && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#fdf2f2] border border-[#f8b4b4] text-xs text-[#9c1c1c]">
+                      <IconAlertCircle size={16} stroke={1.75} className="shrink-0" />
+                      <span>{passwordError}</span>
+                    </div>
+                  )}
+                  {passwordMessage && (
+                    <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#f4f9f4] border border-[#d2ead2] text-xs text-[#2d6a4f]">
+                      <IconCircleCheck size={16} stroke={1.75} className="shrink-0" />
+                      <span>{passwordMessage}</span>
+                    </div>
+                  )}
 
-                {passwordError && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#fdf2f2] border border-[#f8b4b4] text-xs text-[#9c1c1c]">
-                    <IconAlertCircle size={16} stroke={1.75} className="shrink-0" />
-                    <span>{passwordError}</span>
+                  <div className="flex items-center justify-end gap-2 pt-3 mt-2 border-t border-[#ede6de]">
+                    <Drawer.Close className="h-9 px-4 rounded-xl border border-[#ded6cc] bg-white text-[var(--char)] font-bold text-xs shadow-2xs hover:bg-[#faf7f3] hover:border-[#c5bcaf] active:scale-[0.98] transition-all cursor-pointer flex-1 flex items-center justify-center">Hủy</Drawer.Close>
+                    <PrimaryButton size="sm" type="submit" disabled={isChangingPassword} className="flex-1 flex items-center justify-center gap-1.5 py-2.5">
+                      <IconKey size={14} stroke={2} />
+                      <span>{isChangingPassword ? 'Đang lưu…' : 'Lưu mật khẩu mới'}</span>
+                    </PrimaryButton>
                   </div>
-                )}
-                {passwordMessage && (
-                  <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#f4f9f4] border border-[#d2ead2] text-xs text-[#2d6a4f]">
-                    <IconCircleCheck size={16} stroke={1.75} className="shrink-0" />
-                    <span>{passwordMessage}</span>
+                </form>
+              </Drawer.Body>
+            </Drawer.Content>
+          </Drawer.Root>
+        ) : (
+          <Dialog.Root open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+            <Dialog.Portal>
+              <Dialog.Backdrop className="dialog-backdrop" />
+              <Dialog.Viewport className="dialog-viewport">
+                <Dialog.Popup className="editor-dialog" style={{ maxWidth: '440px' }}>
+                  <div className="flex items-start justify-between pb-3 border-b border-[#ede6de]">
+                    <div>
+                      <Dialog.Title className="text-lg font-bold text-[var(--char)]">Đổi mật khẩu tài khoản</Dialog.Title>
+                      <Dialog.Description className="text-xs text-[#8c8177] mt-0.5">
+                        Mật khẩu mới yêu cầu độ dài tối thiểu 10 ký tự.
+                      </Dialog.Description>
+                    </div>
+                    <Dialog.Close aria-label="Đóng" className="p-1 rounded-md text-[#8c8177] hover:text-[var(--char)] hover:bg-[#f0ebe4] transition-colors">
+                      ✕
+                    </Dialog.Close>
                   </div>
-                )}
 
-                <div className="flex items-center justify-end gap-2 pt-3 mt-2 border-t border-[#ede6de]">
-                  <Dialog.Close className="print-button text-xs py-2 px-3">Hủy</Dialog.Close>
-                  <PrimaryButton size="sm" type="submit" disabled={isChangingPassword} className="flex items-center gap-1.5">
-                    <IconKey size={14} stroke={2} />
-                    <span>{isChangingPassword ? 'Đang lưu…' : 'Lưu mật khẩu mới'}</span>
-                  </PrimaryButton>
-                </div>
-              </form>
-            </Dialog.Popup>
-          </Dialog.Viewport>
-        </Dialog.Portal>
-      </Dialog.Root>
+                  <form onSubmit={(event) => void handleChangePassword(event)} className="mt-4 flex flex-col gap-3">
+                    <Field.Root>
+                      <Field.Label className="text-xs font-semibold text-[var(--char)]">Mật khẩu hiện tại</Field.Label>
+                      <Input
+                        size="md"
+                        required
+                        type="password"
+                        autoComplete="current-password"
+                        value={currentPassword}
+                        onChange={(event) => setCurrentPassword(event.target.value)}
+                        className="mt-1"
+                      />
+                    </Field.Root>
+
+                    <Field.Root>
+                      <Field.Label className="text-xs font-semibold text-[var(--char)]">Mật khẩu mới</Field.Label>
+                      <Input
+                        size="md"
+                        required
+                        minLength={10}
+                        type="password"
+                        autoComplete="new-password"
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        className="mt-1"
+                      />
+                    </Field.Root>
+
+                    <Field.Root>
+                      <Field.Label className="text-xs font-semibold text-[var(--char)]">Xác nhận mật khẩu mới</Field.Label>
+                      <Input
+                        size="md"
+                        required
+                        minLength={10}
+                        type="password"
+                        autoComplete="new-password"
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        className="mt-1"
+                      />
+                    </Field.Root>
+
+                    {passwordError && (
+                      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#fdf2f2] border border-[#f8b4b4] text-xs text-[#9c1c1c]">
+                        <IconAlertCircle size={16} stroke={1.75} className="shrink-0" />
+                        <span>{passwordError}</span>
+                      </div>
+                    )}
+                    {passwordMessage && (
+                      <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#f4f9f4] border border-[#d2ead2] text-xs text-[#2d6a4f]">
+                        <IconCircleCheck size={16} stroke={1.75} className="shrink-0" />
+                        <span>{passwordMessage}</span>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-end gap-2 pt-3 mt-2 border-t border-[#ede6de]">
+                      <Dialog.Close className="h-8.5 px-3 sm:px-4 rounded-xl border border-[#ded6cc] bg-white text-[var(--char)] font-bold text-xs shadow-2xs hover:bg-[#faf7f3] hover:border-[#c5bcaf] active:scale-[0.98] transition-all cursor-pointer inline-flex items-center justify-center">Hủy</Dialog.Close>
+                      <PrimaryButton size="sm" type="submit" disabled={isChangingPassword} className="flex items-center gap-1.5">
+                        <IconKey size={14} stroke={2} />
+                        <span>{isChangingPassword ? 'Đang lưu…' : 'Lưu mật khẩu mới'}</span>
+                      </PrimaryButton>
+                    </div>
+                  </form>
+                </Dialog.Popup>
+              </Dialog.Viewport>
+            </Dialog.Portal>
+          </Dialog.Root>
+        )
+      )}
     </div>
   )
 }

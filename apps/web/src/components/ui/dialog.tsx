@@ -81,7 +81,7 @@ export const DialogPopup = React.forwardRef<
     <BaseDialog.Popup
       ref={ref}
       className={resolveClassName(
-        'relative w-full max-w-lg rounded-xl bg-[#fffdf9] p-6 sm:p-8 text-[#1c1512] shadow-2xl border border-[#ded1c0] transition-[opacity,transform] duration-150 ease-out data-starting-style:opacity-0 data-starting-style:scale-98 data-ending-style:opacity-0 data-ending-style:scale-98 focus:outline-hidden',
+        'relative w-full max-w-lg rounded-2xl bg-[#fffdf9] p-6 text-[#1c1512] shadow-2xl border border-[#ded1c0] transition-[opacity,transform] duration-150 ease-out data-starting-style:opacity-0 data-starting-style:scale-98 data-ending-style:opacity-0 data-ending-style:scale-98 focus:outline-hidden',
         className
       )}
       {...props}

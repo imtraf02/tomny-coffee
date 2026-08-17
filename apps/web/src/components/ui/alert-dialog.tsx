@@ -72,7 +72,10 @@ export const AlertDialogClose = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <BaseAlertDialog.Close
     ref={ref}
-    className={resolveClassName('inline-flex min-h-10 items-center justify-center rounded-[var(--radius-sm)] border border-[var(--stone)] px-3 text-sm font-semibold transition-colors hover:border-[var(--ember)] hover:text-[var(--ember)] focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-2', className)}
+    className={resolveClassName(
+      'inline-flex h-8.5 px-3 sm:px-4 items-center justify-center rounded-xl border border-[#ded6cc] bg-white text-[var(--char)] font-bold text-xs sm:text-sm shadow-2xs hover:bg-[#faf7f3] hover:border-[#c5bcaf] active:scale-[0.98] transition-all cursor-pointer focus-visible:ring-2 focus-visible:ring-[var(--amber)] focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 select-none',
+      className,
+    )}
     {...props}
   />
 ))

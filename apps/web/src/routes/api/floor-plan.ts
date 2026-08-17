@@ -29,19 +29,54 @@ export const Route = createFileRoute('/api/floor-plan')({ server: { handlers: { 
 
 async function listTables({ request }: { request: Request }) {
   requirePermission(await getCurrentUser(request), 'floor_plan.read')
-  const [zones, tables] = await Promise.all([
+  const [zones, rawTables, occupiedRows] = await Promise.all([
     env.DB.prepare('SELECT id, name, sort_order AS sortOrder FROM zones WHERE active = 1 ORDER BY sort_order, name').all(),
-    env.DB.prepare(`SELECT t.id, t.zone_id AS zoneId, z.name AS zoneName, t.name, t.shape, t.note, t.sort_order AS sortOrder, t.status AS storedStatus,
-      CASE
-        WHEN t.status_override IN ('dat_truoc', 'can_don') THEN t.status_override
-        WHEN EXISTS (SELECT 1 FROM orders o JOIN order_lines l ON l.order_id = o.id WHERE o.table_id = t.id AND o.status = 'draft' AND l.line_status = 'active') THEN 'dang_phuc_vu'
-        ELSE 'trong'
-      END AS status
-      FROM "tables" t LEFT JOIN zones z ON z.id = t.zone_id
+    env.DB.prepare(`
+      SELECT t.id, t.zone_id AS zoneId, z.name AS zoneName, t.name, t.shape, t.note, t.sort_order AS sortOrder,
+             t.status AS storedStatus, t.status_override AS statusOverride
+      FROM "tables" t
+      LEFT JOIN zones z ON z.id = t.zone_id
       WHERE t.active = 1 AND (t.zone_id IS NULL OR z.active = 1)
-      ORDER BY COALESCE(z.sort_order, 999), t.sort_order, t.name`).all(),
+      ORDER BY COALESCE(z.sort_order, 999), t.sort_order, t.name
+    `).all<{ id: string; zoneId: string | null; zoneName: string | null; name: string; shape: string; note: string; sortOrder: number; storedStatus: string; statusOverride: string | null }>(),
+    env.DB.prepare(`
+      SELECT ot.table_id AS tableId, o.id AS activeOrderId
+      FROM order_tables ot
+      JOIN orders o ON o.id = ot.order_id
+      JOIN order_lines l ON l.order_id = o.id
+      WHERE o.status = 'draft' AND l.line_status = 'active'
+      GROUP BY ot.table_id
+    `).all<{ tableId: string; activeOrderId: string }>(),
   ])
-  return Response.json({ zones: zones.results, tables: tables.results })
+
+  const occupiedMap = new Map<string, string>()
+  for (const row of occupiedRows.results) {
+    occupiedMap.set(row.tableId, row.activeOrderId)
+  }
+
+  const tables = rawTables.results.map((t) => {
+    const activeOrderId = occupiedMap.get(t.id) ?? null
+    let status = 'trong'
+    if (t.statusOverride === 'dat_truoc' || t.statusOverride === 'can_don') {
+      status = t.statusOverride
+    } else if (activeOrderId) {
+      status = 'dang_phuc_vu'
+    }
+    return {
+      id: t.id,
+      zoneId: t.zoneId,
+      zoneName: t.zoneName,
+      name: t.name,
+      shape: t.shape,
+      note: t.note,
+      sortOrder: t.sortOrder,
+      storedStatus: t.storedStatus,
+      status,
+      activeOrderId,
+    }
+  })
+
+  return Response.json({ zones: zones.results, tables })
 }
 
 async function updateTables({ request }: { request: Request }) {

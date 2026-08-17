@@ -1,10 +1,13 @@
 import { AlertDialog } from '@/components/ui/alert-dialog'
 import { Dialog } from '@/components/ui/dialog'
+import { Drawer } from '@/components/ui/drawer'
 import { Field } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Button, PrimaryButton, SecondaryButton } from '@/components/ui/button'
 import { AppSelect, type SelectOption } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
+import { useIsMobile } from '@/lib/use-mobile'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import {
@@ -71,6 +74,7 @@ async function sendTableAction(body: unknown) {
 }
 
 export function TableManagementWorkspace({ canManage }: { canManage: boolean }) {
+  const isMobile = useIsMobile()
   const queryClient = useQueryClient()
   const query = useQuery({ queryKey: ['floor-plan'], queryFn: getTables })
   const [search, setSearch] = useState('')
@@ -238,7 +242,30 @@ export function TableManagementWorkspace({ canManage }: { canManage: boolean }) 
         </div>
       </div>
 
-      {query.isLoading && <p className="floor-feedback">Đang tải danh sách bàn…</p>}
+      {query.isLoading && (
+        <div className="grid gap-6" role="status" aria-busy="true">
+          <span className="sr-only">Đang tải danh sách bàn…</span>
+          {Array.from({ length: 3 }).map((_, z) => (
+            <div key={z} className="p-4 border border-[#e5ddd6] rounded-xl bg-[#fffdfa]" aria-hidden="true">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-[#ede6de]">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-10" />
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                {Array.from({ length: 6 }).map((_, t) => (
+                  <div key={t} className="p-3 bg-white border border-[#ede6de] rounded-xl min-h-24 shadow-xs">
+                    <div className="flex justify-between items-start gap-2">
+                      <Skeleton className="h-3.5 w-16" />
+                      <Skeleton className="size-2.5 rounded-full" />
+                    </div>
+                    <Skeleton className="h-3 w-20 mt-4" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
       {query.isError && <p className="floor-feedback is-error">{query.error.message}</p>}
 
       {/* Grid View */}
@@ -383,32 +410,57 @@ export function TableManagementWorkspace({ canManage }: { canManage: boolean }) 
         />
       )}
 
-      {/* Delete Confirmation Alert Dialog */}
-      <AlertDialog.Root open={!!deleteTarget} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
-        <AlertDialog.Portal>
-          <AlertDialog.Backdrop className="dialog-backdrop" />
-          <AlertDialog.Viewport className="dialog-viewport">
-            <AlertDialog.Popup className="product-mockup-dialog" style={{ maxWidth: '440px' }}>
-              <div className="product-mockup-form">
-                <AlertDialog.Title className="product-mockup-heading">
+      {/* Delete Confirmation Alert Dialog / Drawer */}
+      {deleteTarget && (
+        isMobile ? (
+          <Drawer.Root open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+            <Drawer.Content direction="bottom" className="w-full max-h-[85dvh] p-0">
+              <Drawer.Header className="px-5 pt-3 pb-2 text-left">
+                <Drawer.Title className="text-base font-bold text-[var(--char)]">
                   Xóa {deleteTarget?.kind === 'zone' ? 'khu vực' : 'bàn'}?
-                </AlertDialog.Title>
-                <AlertDialog.Description className="text-xs text-[#8c8177] mt-2">
+                </Drawer.Title>
+                <Drawer.Description className="text-xs text-[#8c8177] mt-1">
                   {deleteTarget?.kind === 'zone'
                     ? 'Khu vực chỉ có thể xóa khi không còn bàn nào bên trong.'
                     : 'Thao tác này sẽ xóa bàn khỏi hệ thống. Bàn đang có đơn hàng mở sẽ không thể xóa.'}
-                </AlertDialog.Description>
-                <div className="flex items-center justify-end gap-2 mt-6">
-                  <AlertDialog.Close className="product-mockup-cancel-btn">Hủy</AlertDialog.Close>
-                  <Button variant="danger" size="md" onClick={() => void archive()}>
-                    Xác nhận xóa
-                  </Button>
-                </div>
-              </div>
-            </AlertDialog.Popup>
-          </AlertDialog.Viewport>
-        </AlertDialog.Portal>
-      </AlertDialog.Root>
+                </Drawer.Description>
+              </Drawer.Header>
+              <Drawer.Footer className="px-5 pt-3 flex flex-col gap-2">
+                <Button variant="danger" size="md" className="w-full py-2.5 font-bold" onClick={() => void archive()}>
+                  Xác nhận xóa
+                </Button>
+                <Drawer.Close className="w-full h-10 rounded-xl border border-[#ded6cc] bg-white text-[var(--char)] font-bold text-xs shadow-2xs hover:bg-[#faf7f3] active:scale-[0.98] transition-all cursor-pointer flex items-center justify-center">Hủy</Drawer.Close>
+              </Drawer.Footer>
+            </Drawer.Content>
+          </Drawer.Root>
+        ) : (
+          <AlertDialog.Root open={Boolean(deleteTarget)} onOpenChange={(open) => { if (!open) setDeleteTarget(null) }}>
+            <AlertDialog.Portal>
+              <AlertDialog.Backdrop className="dialog-backdrop" />
+              <AlertDialog.Viewport className="dialog-viewport">
+                <AlertDialog.Popup className="product-mockup-dialog" style={{ maxWidth: '440px' }}>
+                  <div className="product-mockup-form">
+                    <AlertDialog.Title className="product-mockup-heading">
+                      Xóa {deleteTarget?.kind === 'zone' ? 'khu vực' : 'bàn'}?
+                    </AlertDialog.Title>
+                    <AlertDialog.Description className="text-xs text-[#8c8177] mt-2">
+                      {deleteTarget?.kind === 'zone'
+                        ? 'Khu vực chỉ có thể xóa khi không còn bàn nào bên trong.'
+                        : 'Thao tác này sẽ xóa bàn khỏi hệ thống. Bàn đang có đơn hàng mở sẽ không thể xóa.'}
+                    </AlertDialog.Description>
+                    <div className="flex items-center justify-end gap-2 mt-6">
+                      <AlertDialog.Close className="h-10 px-4 text-xs font-bold rounded-xl border border-[#ded6cc] bg-white text-[var(--char)] shadow-2xs hover:bg-[#faf7f3] hover:border-[#c5bcaf] active:scale-[0.98] transition-all cursor-pointer inline-flex items-center justify-center">Hủy</AlertDialog.Close>
+                      <Button variant="danger" size="md" onClick={() => void archive()}>
+                        Xác nhận xóa
+                      </Button>
+                    </div>
+                  </div>
+                </AlertDialog.Popup>
+              </AlertDialog.Viewport>
+            </AlertDialog.Portal>
+          </AlertDialog.Root>
+        )
+      )}
     </section>
   )
 }
@@ -424,6 +476,7 @@ function TableEditor({
   onClose: () => void
   onSave: (body: unknown, message: string) => Promise<void>
 }) {
+  const isMobile = useIsMobile()
   const isZone = editor.kind === 'zone'
   const isEditing = Boolean(editor.item)
   const [zoneDraft, setZoneDraft] = useState({
@@ -465,6 +518,93 @@ function TableEditor({
     }
   }
 
+  const formContent = (
+    <form onSubmit={(e) => void submit(e)} className="grid gap-4 mt-2">
+      {isZone ? (
+        <>
+          <Field.Root>
+            <Field.Label>Tên khu vực *</Field.Label>
+            <Input size="md" required value={zoneDraft.name} onChange={(e) => setZoneDraft({ ...zoneDraft, name: e.target.value })} placeholder="VD: Sân vườn ngoài trời" className="product-mockup-input" />
+          </Field.Root>
+          <Field.Root>
+            <Field.Label>Thứ tự hiển thị</Field.Label>
+            <Input size="md" type="number" value={zoneDraft.sortOrder} onChange={(e) => setZoneDraft({ ...zoneDraft, sortOrder: Number(e.target.value) })} className="product-mockup-input font-data" />
+          </Field.Root>
+        </>
+      ) : (
+        <>
+          <Field.Root>
+            <Field.Label>Khu vực *</Field.Label>
+            <AppSelect
+              size="md"
+              items={zoneSelectOptions}
+              value={tableDraft.zoneId}
+              onValueChange={(val) => setTableDraft({ ...tableDraft, zoneId: val })}
+              triggerClassName="bg-white"
+            />
+          </Field.Root>
+          <div className="grid grid-cols-2 gap-3">
+            <Field.Root>
+              <Field.Label>Tên / Số bàn *</Field.Label>
+              <Input size="md" required value={tableDraft.name} onChange={(e) => setTableDraft({ ...tableDraft, name: e.target.value })} placeholder="VD: Bàn 01" className="product-mockup-input" />
+            </Field.Root>
+            <Field.Root>
+              <Field.Label>Thứ tự hiển thị</Field.Label>
+              <Input size="md" type="number" value={tableDraft.sortOrder} onChange={(e) => setTableDraft({ ...tableDraft, sortOrder: Number(e.target.value) })} className="product-mockup-input font-data" />
+            </Field.Root>
+          </div>
+          <Field.Root>
+            <Field.Label>Trạng thái khởi tạo</Field.Label>
+            <AppSelect
+              size="md"
+              items={STATUS_OVERRIDE_OPTIONS}
+              value={tableDraft.statusOverride}
+              onValueChange={(val) => setTableDraft({ ...tableDraft, statusOverride: val })}
+              triggerClassName="bg-white"
+            />
+          </Field.Root>
+          <Field.Root>
+            <Field.Label>Ghi chú bàn</Field.Label>
+            <Input size="md" value={tableDraft.note} onChange={(e) => setTableDraft({ ...tableDraft, note: e.target.value })} placeholder="VD: Gần cửa sổ, có ổ điện" className="product-mockup-input" />
+          </Field.Root>
+        </>
+      )}
+
+      <div className="product-mockup-footer mt-2 flex gap-2">
+        {isMobile ? (
+          <Drawer.Close className="h-10 px-4 rounded-xl border border-[#ded6cc] bg-white text-[var(--char)] font-bold text-xs shadow-2xs hover:bg-[#faf7f3] active:scale-[0.98] transition-all cursor-pointer flex-1 flex items-center justify-center">Hủy</Drawer.Close>
+        ) : (
+          <Dialog.Close className="h-10 px-4 rounded-xl border border-[#ded6cc] bg-white text-[var(--char)] font-bold text-xs shadow-2xs hover:bg-[#faf7f3] hover:border-[#c5bcaf] active:scale-[0.98] transition-all cursor-pointer inline-flex items-center justify-center">Hủy</Dialog.Close>
+        )}
+        <PrimaryButton disabled={saving} type="submit" className={isMobile ? 'flex-1' : ''}>
+          {saving ? 'Đang lưu…' : 'Lưu thay đổi'}
+        </PrimaryButton>
+      </div>
+    </form>
+  )
+
+  if (isMobile) {
+    return (
+      <Drawer.Root open onOpenChange={(open) => { if (!open) onClose() }}>
+        <Drawer.Content direction="bottom" className="w-full max-h-[90dvh] p-0">
+          <Drawer.Header className="px-5 pt-3 pb-3 border-b border-[#ede6de]">
+            <div>
+              <Drawer.Title className="text-lg font-bold font-display text-[var(--char)]">
+                {isZone ? (isEditing ? 'Sửa khu vực' : 'Thêm khu vực mới') : (isEditing ? 'Sửa bàn' : 'Thêm bàn mới')}
+              </Drawer.Title>
+              <Drawer.Description className="text-xs text-[#8c8177] mt-0.5">
+                {isZone ? 'Thiết lập tên khu vực như Tầng 1, Tầng 2, Sân vườn...' : 'Gán bàn vào khu vực và thiết lập trạng thái ghi đè.'}
+              </Drawer.Description>
+            </div>
+          </Drawer.Header>
+          <Drawer.Body className="px-5 py-4">
+            {formContent}
+          </Drawer.Body>
+        </Drawer.Content>
+      </Drawer.Root>
+    )
+  }
+
   return (
     <Dialog.Root open onOpenChange={(open) => { if (!open) onClose() }}>
       <Dialog.Portal>
@@ -485,67 +625,7 @@ function TableEditor({
                   <IconX size={18} stroke={1.75} />
                 </Dialog.Close>
               </div>
-
-              <form onSubmit={(e) => void submit(e)} className="grid gap-4 mt-4">
-                {isZone ? (
-                  <>
-                    <Field.Root>
-                      <Field.Label>Tên khu vực *</Field.Label>
-                      <Input size="md" required value={zoneDraft.name} onChange={(e) => setZoneDraft({ ...zoneDraft, name: e.target.value })} placeholder="VD: Sân vườn ngoài trời" className="product-mockup-input" />
-                    </Field.Root>
-                    <Field.Root>
-                      <Field.Label>Thứ tự hiển thị</Field.Label>
-                      <Input size="md" type="number" value={zoneDraft.sortOrder} onChange={(e) => setZoneDraft({ ...zoneDraft, sortOrder: Number(e.target.value) })} className="product-mockup-input font-data" />
-                    </Field.Root>
-                  </>
-                ) : (
-                  <>
-                    <Field.Root>
-                      <Field.Label>Khu vực *</Field.Label>
-                      <AppSelect
-                        size="md"
-                        items={zoneSelectOptions}
-                        value={tableDraft.zoneId}
-                        onValueChange={(val) => setTableDraft({ ...tableDraft, zoneId: val })}
-                        triggerClassName="bg-white"
-                      />
-                    </Field.Root>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Field.Root>
-                        <Field.Label>Tên / Số bàn *</Field.Label>
-                        <Input size="md" required value={tableDraft.name} onChange={(e) => setTableDraft({ ...tableDraft, name: e.target.value })} placeholder="VD: Bàn 01" className="product-mockup-input" />
-                      </Field.Root>
-                      <Field.Root>
-                        <Field.Label>Thứ tự hiển thị</Field.Label>
-                        <Input size="md" type="number" value={tableDraft.sortOrder} onChange={(e) => setTableDraft({ ...tableDraft, sortOrder: Number(e.target.value) })} className="product-mockup-input font-data" />
-                      </Field.Root>
-                    </div>
-                    <Field.Root>
-                      <Field.Label>Trạng thái khởi tạo</Field.Label>
-                      <AppSelect
-                        size="md"
-                        items={STATUS_OVERRIDE_OPTIONS}
-                        value={tableDraft.statusOverride}
-                        onValueChange={(val) => setTableDraft({ ...tableDraft, statusOverride: val })}
-                        triggerClassName="bg-white"
-                      />
-                    </Field.Root>
-                    <Field.Root>
-                      <Field.Label>Ghi chú bàn</Field.Label>
-                      <Input size="md" value={tableDraft.note} onChange={(e) => setTableDraft({ ...tableDraft, note: e.target.value })} placeholder="VD: Gần cửa sổ, có ổ điện" className="product-mockup-input" />
-                    </Field.Root>
-                  </>
-                )}
-
-                <div className="product-mockup-footer mt-2">
-                  <div className="flex items-center justify-end gap-2 w-full">
-                    <Dialog.Close className="product-mockup-cancel-btn">Hủy</Dialog.Close>
-                    <PrimaryButton disabled={saving} type="submit">
-                      {saving ? 'Đang lưu…' : 'Lưu thay đổi'}
-                    </PrimaryButton>
-                  </div>
-                </div>
-              </form>
+              {formContent}
             </div>
           </Dialog.Popup>
         </Dialog.Viewport>

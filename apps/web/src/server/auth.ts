@@ -22,8 +22,8 @@ export async function digest(value: string) {
 export async function hashPassword(password: string) {
   const salt = crypto.getRandomValues(new Uint8Array(16))
   const key = await crypto.subtle.importKey('raw', encoder.encode(password), 'PBKDF2', false, ['deriveBits'])
-  const derived = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 310_000, hash: 'SHA-256' }, key, 256)
-  return `pbkdf2$310000$${bytesToBase64Url(salt)}$${bytesToBase64Url(new Uint8Array(derived))}`
+  const derived = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt, iterations: 100_000, hash: 'SHA-256' }, key, 256)
+  return `pbkdf2$100000$${bytesToBase64Url(salt)}$${bytesToBase64Url(new Uint8Array(derived))}`
 }
 
 export async function verifyPassword(password: string, stored: string) {
@@ -59,15 +59,25 @@ export function sessionCookie(token: string, expiresAt: Date, request?: Request)
 
 export function expiredSessionCookie(request?: Request) { return `${SESSION_COOKIE}=; Path=/; HttpOnly; ${secureAttribute(request)}SameSite=Lax; Max-Age=0` }
 
-export type CurrentUser = { id: string; email: string; displayName: string; permissions: string[] }
+export type CurrentUser = { id: string; username: string; email?: string; displayName: string; permissions: string[] }
 
 export async function getCurrentUser(request: Request): Promise<CurrentUser | null> {
   const token = cookieValue(request, SESSION_COOKIE)
   if (!token) return null
-  const row = await env.DB.prepare(`SELECT users.id, users.email, users.display_name AS displayName FROM sessions JOIN users ON users.id = sessions.user_id WHERE sessions.token_hash = ? AND sessions.expires_at > ? AND users.active = 1`).bind(await digest(token), Date.now()).first<{ id: string; email: string; displayName: string }>()
+  const row = await env.DB.prepare(`
+    SELECT users.id, users.username, users.email, users.display_name AS displayName,
+           GROUP_CONCAT(permissions.code, ',') AS permissionsStr
+    FROM sessions
+    JOIN users ON users.id = sessions.user_id
+    LEFT JOIN user_permissions ON user_permissions.user_id = users.id
+    LEFT JOIN permissions ON permissions.id = user_permissions.permission_id
+    WHERE sessions.token_hash = ? AND sessions.expires_at > ? AND users.active = 1
+    GROUP BY users.id
+  `).bind(await digest(token), Date.now()).first<{ id: string; username?: string; email?: string; displayName: string; permissionsStr?: string | null }>()
   if (!row) return null
-  const permissionRows = await env.DB.prepare(`SELECT permissions.code FROM user_permissions JOIN permissions ON permissions.id = user_permissions.permission_id WHERE user_permissions.user_id = ?`).bind(row.id).all<{ code: string }>()
-  return { ...row, permissions: permissionRows.results.map((permission) => permission.code) }
+  const username = row.username || (row.email ? row.email.split('@')[0] : 'user')
+  const permissions = row.permissionsStr ? row.permissionsStr.split(',').filter(Boolean) : []
+  return { id: row.id, username, email: row.email, displayName: row.displayName, permissions }
 }
 
 export async function destroySession(request: Request) {

@@ -45,9 +45,9 @@ async function listOrders({ request }: { request: Request }) {
 
 async function orderAction({ request }: { request: Request }) {
   const actor = requireAnyPermission(await getCurrentUser(request), ['orders.manage', 'pos.cancel'])
-  const body = await request.json().catch(() => null) as { action?: string; orderId?: string; expectedVersion?: number; reason?: string; manager?: { email?: string; password?: string } } | null
+  const body = await request.json().catch(() => null) as { action?: string; orderId?: string; expectedVersion?: number; reason?: string; manager?: { username?: string; email?: string; password?: string } } | null
   if (!body || body.action !== 'cancel' || !body.orderId || !z.string().uuid().safeParse(body.orderId).success || !body.reason || body.reason.trim().length < 3) return Response.json({ message: 'Cần mã đơn và lý do hủy hợp lệ.' }, { status: 400 })
-  const manager = body.manager?.email && body.manager.password ? { email: body.manager.email, password: body.manager.password } : undefined
+  const manager = (body.manager?.username || body.manager?.email) && body.manager.password ? { username: body.manager.username, email: body.manager.email, password: body.manager.password } : undefined
   try { return Response.json(await cancelOrder(env.DB, actor, { orderId: body.orderId, expectedVersion: body.expectedVersion, reason: body.reason, manager })) }
   catch (error) { if (error instanceof Response) return error; return Response.json({ message: 'Không thể hủy đơn.' }, { status: 500 }) }
 }

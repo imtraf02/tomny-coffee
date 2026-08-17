@@ -10,4 +10,4 @@ node "$(dirname "$0")/seed-local.mjs" > "$sql_file"
 npx wrangler d1 execute "$database_name" --local --file "$sql_file"
 
 printf 'Seeded sample data into %s (local).\n' "$database_name"
-printf 'Demo logins (password: 123456): owner@tomny.coffee, cashier@tomny.coffee, barista@tomny.coffee, stock@tomny.coffee\n'
+printf 'Demo logins (password: 123456): admin, cashier, barista, stock\n'

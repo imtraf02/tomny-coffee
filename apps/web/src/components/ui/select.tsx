@@ -45,15 +45,22 @@ SelectLabel.displayName = 'SelectLabel'
  */
 export const SelectTrigger = React.forwardRef<
   React.ComponentRef<typeof BaseSelect.Trigger>,
-  React.ComponentPropsWithoutRef<typeof BaseSelect.Trigger> & { size?: 'sm' | 'md' }
+  React.ComponentPropsWithoutRef<typeof BaseSelect.Trigger> & { size?: 'xs' | 'sm' | 'md' | 'lg' }
 >(({ className, size = 'sm', children, ...props }, ref) => {
+  const sizeClasses = {
+    xs: 'h-7 px-2.5 text-xs font-semibold rounded-lg gap-1.5',
+    sm: 'h-8.5 px-3 text-xs sm:text-sm font-semibold rounded-xl gap-2',
+    md: 'h-10 px-4 text-sm font-bold rounded-xl gap-2',
+    lg: 'h-12 px-5 text-base font-bold rounded-2xl gap-2.5',
+  }[size]
+
   return (
     <BaseSelect.Trigger
       ref={ref}
       className={resolveClassName(
         cn(
-          'group inline-flex items-center justify-between gap-2.5 rounded-[var(--radius-sm)] border border-[#d9d0c8] bg-white text-[var(--char)] outline-hidden select-none transition-[border-color,background-color,box-shadow] hover:border-[var(--stone)] hover:bg-[#fcfaf7] focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-1 disabled:cursor-not-allowed disabled:opacity-50 data-popup-open:border-[var(--ember)] data-popup-open:bg-[#fdf9f4] data-popup-open:shadow-[0_0_0_3px_rgba(176,67,42,0.08)]',
-          size === 'sm' ? 'min-h-10 px-3 py-1.5 text-xs sm:text-sm font-medium' : 'min-h-11 px-3.5 py-2 text-sm font-medium'
+          'group inline-flex items-center justify-between border border-[#d9d0c8] bg-white text-[var(--char)] outline-hidden select-none transition-[border-color,background-color,box-shadow] hover:border-[var(--stone)] hover:bg-[#fcfaf7] focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-1 disabled:cursor-not-allowed disabled:opacity-50 data-popup-open:border-[var(--ember)] data-popup-open:bg-[#fdf9f4] data-popup-open:shadow-[0_0_0_3px_rgba(176,67,42,0.08)]',
+          sizeClasses
         ),
         className
       )}
@@ -150,7 +157,7 @@ export const SelectPopup = React.forwardRef<
     <BaseSelect.Popup
       ref={ref}
       className={resolveClassName(
-        'min-w-[var(--anchor-width)] max-h-72 overflow-hidden rounded-[var(--radius-sm)] border border-[#ded1c0] bg-[#fffdf9] p-1 text-[var(--char)] shadow-xl outline-hidden transition-[opacity,scale] duration-150 ease-out origin-[var(--transform-origin)] data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95',
+        'min-w-[var(--anchor-width)] max-h-72 overflow-hidden rounded-xl border border-[#ded1c0] bg-[#fffdf9] p-1 text-[var(--char)] shadow-xl outline-hidden transition-[opacity,scale] duration-150 ease-out origin-[var(--transform-origin)] data-starting-style:opacity-0 data-starting-style:scale-95 data-ending-style:opacity-0 data-ending-style:scale-95',
         className
       )}
       {...props}
@@ -227,7 +234,7 @@ export const SelectItem = React.forwardRef<
     <BaseSelect.Item
       ref={ref}
       className={resolveClassName(
-        'relative flex cursor-pointer items-center justify-between rounded-[var(--radius-sm)] px-3 py-2 text-xs sm:text-sm text-[var(--char)] outline-hidden select-none transition-colors data-highlighted:bg-[var(--crema)] data-disabled:pointer-events-none data-disabled:opacity-50',
+        'relative flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 text-xs sm:text-sm text-[var(--char)] outline-hidden select-none transition-colors data-highlighted:bg-[var(--crema)] data-disabled:pointer-events-none data-disabled:opacity-50',
         className
       )}
       {...props}
@@ -376,7 +383,7 @@ export interface AppSelectProps {
   className?: string
   triggerClassName?: string
   popupClassName?: string
-  size?: 'sm' | 'md'
+  size?: 'xs' | 'sm' | 'md' | 'lg'
   'aria-label'?: string
 }
 
@@ -430,7 +437,7 @@ export function AppSelect({
                   key={item.value}
                   value={item.value}
                   disabled={item.disabled}
-                  className="flex items-center justify-between gap-2 px-2.5 py-1.5 text-xs sm:text-sm rounded-[var(--radius-sm)] cursor-pointer select-none data-highlighted:bg-[var(--crema)] data-disabled:opacity-50"
+                  className="flex items-center justify-between gap-2 px-2.5 py-2 text-xs sm:text-sm rounded-lg cursor-pointer select-none data-highlighted:bg-[var(--crema)] data-disabled:opacity-50"
                 >
                   <SelectItemText>{item.label}</SelectItemText>
                   <SelectItemIndicator />

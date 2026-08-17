@@ -15,7 +15,7 @@ function InventoryAdminPage() {
   return (
     <AdminPageShell
       title="Kho & Nguyên Liệu"
-      subtitle="Quản lý tồn kho theo lô FIFO, theo dõi ngưỡng an toàn và lập phiếu nhập/xuất kho."
+      subtitle="Quản lý số lượng tồn kho, theo dõi lượng hàng nhập và chi phí tiền mua hàng theo từng tháng."
     >
       <InventoryWorkspace canManage={canManage} />
     </AdminPageShell>

@@ -5,6 +5,7 @@ import {
   IconHistory,
   IconLayoutDashboard,
   IconUserCircle,
+  IconToolsKitchen2,
 } from '@tabler/icons-react'
 import { cn } from '@/lib/utils'
 
@@ -73,6 +74,7 @@ export function BottomFloatingBar() {
   const isOrders = pathname === '/admin/orders'
   const isAdmin = pathname === '/admin' || (pathname.startsWith('/admin') && !isOrders)
   const isPos = pathname.startsWith('/pos')
+  const isKds = pathname.startsWith('/kds')
   const isAccount = pathname.startsWith('/account')
 
   return (
@@ -85,7 +87,7 @@ export function BottomFloatingBar() {
           : 'opacity-100 translate-y-0'
       )}
     >
-      <div className="w-full max-w-md pointer-events-auto rounded-2xl liquid-glass-dock px-2 shadow-2xl h-16 flex items-center justify-around border border-white/70">
+      <div className="w-full max-w-lg pointer-events-auto rounded-2xl liquid-glass-dock px-2 shadow-2xl h-16 flex items-center justify-around border border-white/70">
         {/* 1. Bán Hàng */}
         <Link
           to="/pos"
@@ -111,7 +113,32 @@ export function BottomFloatingBar() {
           </span>
         </Link>
 
-        {/* 2. Lịch Sử */}
+        {/* 2. Pha Chế */}
+        <Link
+          to="/kds"
+          className={cn(
+            'floating-nav-item flex flex-col items-center justify-center gap-1 flex-1 h-full py-1 text-decoration-none transition-all duration-200 select-none',
+            isKds
+              ? 'is-active text-[var(--ember)] font-bold'
+              : 'text-[#7a6c5f] hover:text-[var(--char)] font-medium'
+          )}
+        >
+          <div
+            className={cn(
+              'floating-nav-icon-wrap flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200',
+              isKds
+                ? 'bg-[var(--ember)] text-white shadow-sm scale-105'
+                : 'bg-transparent text-current'
+            )}
+          >
+            <IconToolsKitchen2 size={18} stroke={isKds ? 2.2 : 1.75} />
+          </div>
+          <span className="text-[10.5px] tracking-tight leading-none whitespace-nowrap">
+            Pha Chế
+          </span>
+        </Link>
+
+        {/* 3. Lịch Sử */}
         <Link
           to="/admin/orders"
           className={cn(

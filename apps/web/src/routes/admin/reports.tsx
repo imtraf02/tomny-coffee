@@ -11,8 +11,8 @@ export const Route = createFileRoute('/admin/reports')({
 function ReportsAdminPage() {
   return (
     <AdminPageShell
-      title="Báo Cáo & Phân Tích Doanh Thu"
-      subtitle="Tổng hợp doanh thu, giá vốn hàng bán COGS, lợi nhuận gộp và cơ cấu sản phẩm."
+      title="Báo Cáo & Phân Tích Hoạt Động"
+      subtitle="Tổng hợp doanh thu bán hàng, chi tiền mua nguyên vật liệu, tiền lời thực tế và cơ cấu thực đơn."
     >
       <ReportsWorkspace
         onExportExcel={(data: ReportData) => void exportXlsx(data)}

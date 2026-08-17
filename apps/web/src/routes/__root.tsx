@@ -23,7 +23,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        <div className="app-root pb-20 md:pb-6 print:pb-0">
+        <div className="app-root pb-28 md:pb-28 print:pb-0">
           <Providers>{children}</Providers>
           <BottomFloatingBar />
         </div>
