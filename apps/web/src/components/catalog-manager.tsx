@@ -695,50 +695,58 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                 </div>
 
                 {/* Filter controls */}
-                <div className="grid grid-cols-2 sm:flex sm:flex-nowrap items-center gap-2 shrink-0 w-full sm:w-auto">
-                  <AppSelect
-                    size="sm"
-                    items={[{ value: 'all', label: 'Tất cả danh mục' }, ...categoryOptions]}
-                    value={categoryFilter}
-                    onValueChange={(val) => setCategoryFilter(val)}
-                    aria-label="Lọc theo danh mục"
-                    triggerClassName="h-9 w-full sm:w-auto sm:min-w-[155px] bg-[#fdfcfb] text-xs font-semibold rounded-xl border-[#d9d0c8]"
-                  />
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0 w-full sm:w-auto">
+                  {/* Category dropdown: Desktop only (on mobile, the category pills bar directly below is used) */}
+                  <div className="hidden sm:block">
+                    <AppSelect
+                      size="sm"
+                      items={[{ value: 'all', label: 'Tất cả danh mục' }, ...categoryOptions]}
+                      value={categoryFilter}
+                      onValueChange={(val) => setCategoryFilter(val)}
+                      aria-label="Lọc theo danh mục"
+                      triggerClassName="h-9 w-auto min-w-[155px] bg-white text-xs font-medium rounded-xl border-[#ded6cc]"
+                    />
+                  </div>
 
-                  <AppSelect
-                    size="sm"
-                    items={STATUS_OPTIONS}
-                    value={statusFilter}
-                    onValueChange={(val) => setStatusFilter(val as typeof statusFilter)}
-                    aria-label="Lọc theo trạng thái"
-                    triggerClassName="h-9 w-full sm:w-auto sm:min-w-[140px] bg-[#fdfcfb] text-xs font-semibold rounded-xl border-[#d9d0c8]"
-                  />
-
-                  <div className="col-span-2 sm:col-span-1 flex items-center gap-2 w-full sm:w-auto">
+                  {/* Status & Sort: 2 clean 50/50 columns on mobile, auto width on desktop */}
+                  <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 flex-1 sm:flex-initial w-full sm:w-auto">
                     <AppSelect
                       size="sm"
                       items={[
-                        { value: 'name-asc', label: 'Sắp xếp: Tên A–Z' },
-                        { value: 'name-desc', label: 'Sắp xếp: Tên Z–A' },
+                        { value: 'all', label: 'Tất cả trạng thái' },
+                        { value: 'active', label: 'Đang bán' },
+                        { value: 'inactive', label: 'Ngừng bán' },
+                      ]}
+                      value={statusFilter}
+                      onValueChange={(val) => setStatusFilter(val as typeof statusFilter)}
+                      aria-label="Lọc theo trạng thái"
+                      triggerClassName="h-9 w-full sm:w-auto sm:min-w-[140px] bg-white text-xs font-medium rounded-xl border-[#ded6cc]"
+                    />
+
+                    <AppSelect
+                      size="sm"
+                      items={[
+                        { value: 'name-asc', label: 'Tên: A → Z' },
+                        { value: 'name-desc', label: 'Tên: Z → A' },
                         { value: 'price-asc', label: 'Giá: Thấp → Cao' },
                         { value: 'price-desc', label: 'Giá: Cao → Thấp' },
                       ]}
                       value={sortBy}
                       onValueChange={(val) => setSortBy(val as typeof sortBy)}
                       aria-label="Sắp xếp sản phẩm"
-                      triggerClassName="h-9 flex-1 sm:flex-initial sm:min-w-[150px] bg-[#fdfcfb] text-xs font-semibold rounded-xl border-[#d9d0c8]"
+                      triggerClassName="h-9 w-full sm:w-auto sm:min-w-[145px] bg-white text-xs font-medium rounded-xl border-[#ded6cc]"
                     />
-
-                    {hasFilterActive && (
-                      <SecondaryButton
-                        size="sm"
-                        onClick={() => { setSearch(''); setCategoryFilter('all'); setStatusFilter('all'); setSortBy('name-asc') }}
-                        className="h-9 px-3 text-xs font-bold shrink-0 rounded-xl"
-                      >
-                        Đặt lại
-                      </SecondaryButton>
-                    )}
                   </div>
+
+                  {hasFilterActive && (
+                    <SecondaryButton
+                      size="sm"
+                      onClick={() => { setSearch(''); setCategoryFilter('all'); setStatusFilter('all'); setSortBy('name-asc') }}
+                      className="h-9 px-3 text-xs font-bold shrink-0 rounded-xl w-full sm:w-auto"
+                    >
+                      ✕ Đặt lại lọc
+                    </SecondaryButton>
+                  )}
 
                   <div className="hidden lg:flex items-center shrink-0">
                     <Popover.Root>

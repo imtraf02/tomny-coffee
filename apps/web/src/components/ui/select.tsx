@@ -48,10 +48,10 @@ export const SelectTrigger = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof BaseSelect.Trigger> & { size?: 'xs' | 'sm' | 'md' | 'lg' }
 >(({ className, size = 'sm', children, ...props }, ref) => {
   const sizeClasses = {
-    xs: 'h-7 px-2.5 text-xs font-semibold rounded-lg gap-1.5',
-    sm: 'h-8.5 px-3 text-xs sm:text-sm font-semibold rounded-xl gap-2',
-    md: 'h-10 px-4 text-sm font-bold rounded-xl gap-2',
-    lg: 'h-12 px-5 text-base font-bold rounded-2xl gap-2.5',
+    xs: 'h-7.5 px-2.5 text-xs font-medium rounded-lg gap-1.5',
+    sm: 'h-9 px-3 text-xs sm:text-[13px] font-medium rounded-xl gap-1.5',
+    md: 'h-10 px-3.5 text-sm font-medium rounded-xl gap-2',
+    lg: 'h-11 px-4 text-sm sm:text-base font-semibold rounded-2xl gap-2.5',
   }[size]
 
   return (
@@ -59,7 +59,7 @@ export const SelectTrigger = React.forwardRef<
       ref={ref}
       className={resolveClassName(
         cn(
-          'group inline-flex items-center justify-between border border-[#d9d0c8] bg-white text-[var(--char)] outline-hidden select-none transition-[border-color,background-color,box-shadow] hover:border-[var(--stone)] hover:bg-[#fcfaf7] focus-visible:outline-2 focus-visible:outline-[var(--amber)] focus-visible:outline-offset-1 disabled:cursor-not-allowed disabled:opacity-50 data-popup-open:border-[var(--ember)] data-popup-open:bg-[#fdf9f4] data-popup-open:shadow-[0_0_0_3px_rgba(176,67,42,0.08)]',
+          'group inline-flex items-center justify-between border border-[#ded6cc] bg-white text-[var(--char)] shadow-2xs outline-hidden select-none transition-all hover:border-[#b8aba0] hover:bg-[#faf7f3] focus-visible:outline-2 focus-visible:outline-[var(--amber)] disabled:cursor-not-allowed disabled:opacity-50 data-popup-open:border-[var(--ember)] data-popup-open:bg-[#fdf9f4] data-popup-open:shadow-[0_0_0_3px_rgba(176,67,42,0.08)]',
           sizeClasses
         ),
         className
@@ -102,18 +102,18 @@ export const SelectIcon = React.forwardRef<
   return (
     <BaseSelect.Icon
       ref={ref}
-      className={resolveClassName('inline-flex shrink-0 text-[var(--stone)] ml-1 transition-transform duration-150 group-data-popup-open:rotate-180', className)}
+      className={resolveClassName('inline-flex shrink-0 text-[#8c8177] ml-1 transition-transform duration-200 group-data-popup-open:rotate-180', className)}
       {...props}
     >
       {children || (
         <svg
           xmlns="http://www.w3.org/2000/svg"
-          width="15"
-          height="15"
+          width="13"
+          height="13"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
-          strokeWidth="2"
+          strokeWidth="2.2"
           strokeLinecap="round"
           strokeLinejoin="round"
           aria-hidden="true"
