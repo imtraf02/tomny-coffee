@@ -207,27 +207,37 @@ export async function captureElementToImage(
   const width = Math.max(Math.round(rect.width), 320)
   const height = Math.max(el.scrollHeight, Math.round(rect.height))
 
-  // Clone element for clean off-screen rasterization without modal scroll/transforms
+  // Create isolated container placed behind the DOM view
+  const wrapper = document.createElement('div')
+  wrapper.style.position = 'fixed'
+  wrapper.style.top = '0'
+  wrapper.style.left = '0'
+  wrapper.style.width = `${width}px`
+  wrapper.style.height = `${height}px`
+  wrapper.style.zIndex = '-99999'
+  wrapper.style.overflow = 'hidden'
+  wrapper.style.pointerEvents = 'none'
+  wrapper.style.backgroundColor = '#ffffff'
+
+  // Clone element for clean rasterization with full opacity and styles
   const clone = el.cloneNode(true) as HTMLElement
+  clone.style.position = 'static'
   clone.style.transform = 'none'
   clone.style.transformOrigin = 'top left'
   clone.style.margin = '0'
-  clone.style.position = 'fixed'
-  clone.style.top = '0'
-  clone.style.left = '0'
   clone.style.width = `${width}px`
   clone.style.minWidth = `${width}px`
   clone.style.maxWidth = `${width}px`
   clone.style.height = 'auto'
   clone.style.overflow = 'visible'
-  clone.style.zIndex = '-9999'
-  clone.style.opacity = '0.01'
-  clone.style.pointerEvents = 'none'
+  clone.style.opacity = '1'
+  clone.style.visibility = 'visible'
   clone.style.boxShadow = 'none'
-  clone.style.background = '#ffffff'
+  clone.style.backgroundColor = '#ffffff'
   clone.style.color = '#111827'
 
-  document.body.appendChild(clone)
+  wrapper.appendChild(clone)
+  document.body.appendChild(wrapper)
 
   // Ensure fonts and rendering are fully painted
   if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
@@ -248,7 +258,17 @@ export async function captureElementToImage(
       backgroundColor: '#ffffff',
       width,
       height: clone.offsetHeight || height,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
       logging: false,
+      onclone: (_clonedDoc, clonedEl) => {
+        clonedEl.style.position = 'static'
+        clonedEl.style.transform = 'none'
+        clonedEl.style.opacity = '1'
+        clonedEl.style.visibility = 'visible'
+      },
     })
 
     const dataUrl = canvas.toDataURL('image/png', 1.0)
@@ -259,8 +279,8 @@ export async function captureElementToImage(
 
     return dataUrl
   } finally {
-    if (clone.parentNode) {
-      clone.parentNode.removeChild(clone)
+    if (wrapper.parentNode) {
+      wrapper.parentNode.removeChild(wrapper)
     }
   }
 }
