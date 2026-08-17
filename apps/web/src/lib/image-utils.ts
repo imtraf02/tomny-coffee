@@ -188,56 +188,27 @@ export function downloadDataUrl(dataUrl: string, fileName: string): void {
 }
 
 /**
- * Captures an HTML element by ID and renders it into a high-res PNG image Data URL,
- * with off-screen clone isolation and safe Blob downloading.
+ * Captures an HTML element (by ID or direct HTMLElement reference) and renders it
+ * into a high-res PNG image Data URL with full CSS fidelity.
  */
 export async function captureElementToImage(
-  elementId: string,
+  target: string | HTMLElement,
   fileName = 'hoa-don-tomny.png',
   options?: { download?: boolean; scale?: number },
 ): Promise<string> {
-  const el = document.getElementById(elementId)
+  let el: HTMLElement | null = null
+  if (typeof target === 'string') {
+    const matching = Array.from(document.querySelectorAll<HTMLElement>(`#${target}`))
+    el = matching.find((e) => e.offsetWidth > 0 && e.offsetHeight > 0) || document.getElementById(target)
+  } else {
+    el = target
+  }
+
   if (!el) {
-    throw new Error(`Element không tồn tại: ${elementId}`)
+    throw new Error('Không tìm thấy phần tử hóa đơn để xuất ảnh.')
   }
 
   const html2canvas = (await import('html2canvas-pro')).default
-
-  const rect = el.getBoundingClientRect()
-  const width = Math.max(Math.round(rect.width), 320)
-  const height = Math.max(el.scrollHeight, Math.round(rect.height))
-
-  // Create isolated container placed behind the DOM view
-  const wrapper = document.createElement('div')
-  wrapper.style.position = 'fixed'
-  wrapper.style.top = '0'
-  wrapper.style.left = '0'
-  wrapper.style.width = `${width}px`
-  wrapper.style.height = `${height}px`
-  wrapper.style.zIndex = '-99999'
-  wrapper.style.overflow = 'hidden'
-  wrapper.style.pointerEvents = 'none'
-  wrapper.style.backgroundColor = '#ffffff'
-
-  // Clone element for clean rasterization with full opacity and styles
-  const clone = el.cloneNode(true) as HTMLElement
-  clone.style.position = 'static'
-  clone.style.transform = 'none'
-  clone.style.transformOrigin = 'top left'
-  clone.style.margin = '0'
-  clone.style.width = `${width}px`
-  clone.style.minWidth = `${width}px`
-  clone.style.maxWidth = `${width}px`
-  clone.style.height = 'auto'
-  clone.style.overflow = 'visible'
-  clone.style.opacity = '1'
-  clone.style.visibility = 'visible'
-  clone.style.boxShadow = 'none'
-  clone.style.backgroundColor = '#ffffff'
-  clone.style.color = '#111827'
-
-  wrapper.appendChild(clone)
-  document.body.appendChild(wrapper)
 
   // Ensure fonts and rendering are fully painted
   if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
@@ -248,39 +219,22 @@ export async function captureElementToImage(
     }
   }
   await new Promise((r) => requestAnimationFrame(r))
-  await new Promise((r) => requestAnimationFrame(r))
-  await new Promise((r) => setTimeout(r, 120))
+  await new Promise((r) => setTimeout(r, 60))
 
-  try {
-    const canvas = await html2canvas(clone, {
-      scale: options?.scale ?? 3,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      width,
-      height: clone.offsetHeight || height,
-      scrollX: 0,
-      scrollY: 0,
-      x: 0,
-      y: 0,
-      logging: false,
-      onclone: (_clonedDoc, clonedEl) => {
-        clonedEl.style.position = 'static'
-        clonedEl.style.transform = 'none'
-        clonedEl.style.opacity = '1'
-        clonedEl.style.visibility = 'visible'
-      },
-    })
+  const canvas = await html2canvas(el, {
+    scale: options?.scale ?? 3,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    scrollX: 0,
+    scrollY: 0,
+    logging: false,
+  })
 
-    const dataUrl = canvas.toDataURL('image/png', 1.0)
+  const dataUrl = canvas.toDataURL('image/png', 1.0)
 
-    if (options?.download) {
-      downloadDataUrl(dataUrl, fileName)
-    }
-
-    return dataUrl
-  } finally {
-    if (wrapper.parentNode) {
-      wrapper.parentNode.removeChild(wrapper)
-    }
+  if (options?.download) {
+    downloadDataUrl(dataUrl, fileName)
   }
+
+  return dataUrl
 }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   IconPrinter,
   IconDownload,
@@ -36,6 +36,8 @@ export function ReceiptModal({
   customActions,
 }: ReceiptModalProps) {
   const isMobile = useIsMobile()
+  const mobileReceiptRef = useRef<HTMLDivElement>(null)
+  const desktopReceiptRef = useRef<HTMLDivElement>(null)
   const [isCapturing, setIsCapturing] = useState(false)
   const [isExportingPdf, setIsExportingPdf] = useState(false)
   const [captureSuccess, setCaptureSuccess] = useState(false)
@@ -50,7 +52,12 @@ export function ReceiptModal({
     setIsCapturing(true)
     try {
       const fileName = `HD-${order.orderCode}.png`
-      const dataUrl = await captureElementToImage('tomny-receipt-document', fileName, { download: false, scale: 2.5 })
+      const targetEl = isMobile ? mobileReceiptRef.current : desktopReceiptRef.current
+      const dataUrl = await captureElementToImage(
+        targetEl || (isMobile ? 'tomny-receipt-document-mobile' : 'tomny-receipt-document-desktop'),
+        fileName,
+        { download: false, scale: 3 }
+      )
 
       // On mobile devices, check if Web Share API is available to share image file directly
       if (typeof navigator !== 'undefined' && navigator.share && navigator.canShare) {
@@ -284,7 +291,7 @@ export function ReceiptModal({
             <Drawer.Body className="px-3.5 pt-3 pb-6 overflow-y-auto flex flex-col items-center gap-3">
               {/* Receipt Preview centered */}
               <div className="w-full max-w-[328px] rounded-2xl border border-[#ded1c0] shadow-sm bg-white p-1">
-                <ReceiptDocument order={order} id="tomny-receipt-document" />
+                <ReceiptDocument ref={mobileReceiptRef} order={order} id="tomny-receipt-document-mobile" />
               </div>
               <div className="w-full max-w-[328px]">
                 {actionButtons}
@@ -323,7 +330,7 @@ export function ReceiptModal({
                 <div className="flex flex-col sm:flex-row gap-6 items-start justify-center">
                   {/* Left: Thermal Receipt Preview Card */}
                   <div className="w-[320px] shrink-0 rounded-xl overflow-hidden border border-[#ded1c0] shadow-md bg-white">
-                    <ReceiptDocument order={order} id="tomny-receipt-document" />
+                    <ReceiptDocument ref={desktopReceiptRef} order={order} id="tomny-receipt-document-desktop" />
                   </div>
 
                   {/* Right: Action Panel */}
@@ -339,7 +346,7 @@ export function ReceiptModal({
 
       {/* Dedicated Print Element */}
       <div id="tomny-print-receipt-element" className="hidden print:block">
-        <ReceiptDocument order={order} />
+        <ReceiptDocument order={order} id="tomny-receipt-document-print" />
       </div>
     </>
   )

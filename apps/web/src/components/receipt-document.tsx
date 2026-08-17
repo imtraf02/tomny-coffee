@@ -1,3 +1,4 @@
+import React from 'react'
 import { formatMoney } from '@/lib/money'
 import { cn } from '@/lib/utils'
 
@@ -35,29 +36,31 @@ export interface ReceiptDocumentProps {
   id?: string
 }
 
-export function ReceiptDocument({ order, className, id = 'tomny-receipt-document' }: ReceiptDocumentProps) {
-  const formattedDate = new Date(order.createdAt).toLocaleString('vi-VN', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+export const ReceiptDocument = React.forwardRef<HTMLDivElement, ReceiptDocumentProps>(
+  ({ order, className, id }, ref) => {
+    const formattedDate = new Date(order.createdAt).toLocaleString('vi-VN', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
 
-  const diningTypeLabel =
-    order.source === 'takeaway'
-      ? 'Mang đi'
-      : order.source === 'table' && order.tableName
-        ? (order.tableName.startsWith('Bàn') ? order.tableName : `Bàn ${order.tableName}`)
-        : 'Tại quầy'
+    const diningTypeLabel =
+      order.source === 'takeaway'
+        ? 'Mang đi'
+        : order.source === 'table' && order.tableName
+          ? (order.tableName.startsWith('Bàn') ? order.tableName : `Bàn ${order.tableName}`)
+          : 'Tại quầy'
 
-  return (
-    <div
-      id={id}
-      className={cn(
-        'receipt-document mx-auto w-full max-w-[320px] bg-white text-[#111827] px-3.5 py-3 text-[11.5px] leading-tight select-text box-border',
-        className,
-      )}
+    return (
+      <div
+        ref={ref}
+        id={id}
+        className={cn(
+          'receipt-document mx-auto w-full max-w-[320px] bg-white text-[#111827] px-3.5 py-3 text-[11.5px] leading-tight select-text box-border',
+          className,
+        )}
       style={{
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
         backgroundColor: '#ffffff',
@@ -225,5 +228,6 @@ export function ReceiptDocument({ order, className, id = 'tomny-receipt-document
       </div>
     </div>
   )
-}
+})
 
+ReceiptDocument.displayName = 'ReceiptDocument'
