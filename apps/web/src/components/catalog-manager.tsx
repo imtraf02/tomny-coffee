@@ -403,22 +403,22 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
       {/* Top Header & Navigation Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 w-full min-w-0 max-w-full">
         {/* Tab switcher */}
-        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-[#f0ebe4] border border-[#e2dad1] overflow-x-auto scrollbar-none shrink-0 min-w-0 w-full sm:w-auto -webkit-overflow-scrolling-touch">
+        <div className="grid grid-cols-4 sm:flex items-center gap-1 p-1 rounded-xl bg-[#f0ebe4] border border-[#e2dad1] shrink-0 min-w-0 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => setActiveTab('products')}
             className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap',
+              'flex items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap min-w-0',
               activeTab === 'products'
                 ? 'bg-white text-[var(--char)] shadow-xs'
                 : 'text-[#6a5e52] hover:text-[var(--char)] hover:bg-white/50'
             )}
           >
-            <IconCoffee size={15} stroke={1.75} />
-            <span>Sản phẩm</span>
+            <IconCoffee size={15} stroke={1.75} className="shrink-0" />
+            <span className="truncate">Sản phẩm</span>
             <span
               className={cn(
-                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold',
+                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
                 activeTab === 'products' ? 'bg-[#ede6de] text-[var(--char)]' : 'bg-[#e5ddd3] text-[#716559]'
               )}
             >
@@ -430,17 +430,17 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
             type="button"
             onClick={() => setActiveTab('categories')}
             className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap',
+              'flex items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap min-w-0',
               activeTab === 'categories'
                 ? 'bg-white text-[var(--char)] shadow-xs'
                 : 'text-[#6a5e52] hover:text-[var(--char)] hover:bg-white/50'
             )}
           >
-            <IconFolderPlus size={15} stroke={1.75} />
-            <span>Danh mục</span>
+            <IconFolderPlus size={15} stroke={1.75} className="shrink-0" />
+            <span className="truncate">Danh mục</span>
             <span
               className={cn(
-                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold',
+                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
                 activeTab === 'categories' ? 'bg-[#ede6de] text-[var(--char)]' : 'bg-[#e5ddd3] text-[#716559]'
               )}
             >
@@ -452,17 +452,17 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
             type="button"
             onClick={() => setActiveTab('modifiers')}
             className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap',
+              'flex items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap min-w-0',
               activeTab === 'modifiers'
                 ? 'bg-white text-[var(--char)] shadow-xs'
                 : 'text-[#6a5e52] hover:text-[var(--char)] hover:bg-white/50'
             )}
           >
-            <IconToolsKitchen2 size={15} stroke={1.75} />
-            <span>Nhóm Topping</span>
+            <IconToolsKitchen2 size={15} stroke={1.75} className="shrink-0" />
+            <span className="truncate"><span className="hidden sm:inline">Nhóm </span>Topping</span>
             <span
               className={cn(
-                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold',
+                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
                 activeTab === 'modifiers' ? 'bg-[#ede6de] text-[var(--char)]' : 'bg-[#e5ddd3] text-[#716559]'
               )}
             >
@@ -474,17 +474,17 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
             type="button"
             onClick={() => setActiveTab('combos')}
             className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap',
+              'flex items-center justify-center sm:justify-start gap-1.5 px-2 sm:px-3 py-2 rounded-lg text-xs font-bold transition-all cursor-pointer select-none whitespace-nowrap min-w-0',
               activeTab === 'combos'
                 ? 'bg-white text-[var(--char)] shadow-xs'
                 : 'text-[#6a5e52] hover:text-[var(--char)] hover:bg-white/50'
             )}
           >
-            <IconStack2 size={15} stroke={1.75} />
-            <span>Combo</span>
+            <IconStack2 size={15} stroke={1.75} className="shrink-0" />
+            <span className="truncate">Combo</span>
             <span
               className={cn(
-                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold',
+                'px-1.5 py-0.5 rounded-md text-[10px] font-mono font-bold shrink-0',
                 activeTab === 'combos' ? 'bg-[#ede6de] text-[var(--char)]' : 'bg-[#e5ddd3] text-[#716559]'
               )}
             >
@@ -638,14 +638,14 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                 </div>
 
                 {/* Filter controls */}
-                <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 shrink-0">
+                <div className="grid grid-cols-2 sm:flex sm:flex-nowrap items-center gap-2 shrink-0 w-full sm:w-auto">
                   <AppSelect
                     size="sm"
                     items={[{ value: 'all', label: 'Tất cả danh mục' }, ...categoryOptions]}
                     value={categoryFilter}
                     onValueChange={(val) => setCategoryFilter(val)}
                     aria-label="Lọc theo danh mục"
-                    triggerClassName="h-9 min-w-[145px] sm:min-w-[160px] bg-[#fdfcfb] text-xs font-semibold rounded-xl border-[#d9d0c8]"
+                    triggerClassName="h-9 w-full sm:w-auto sm:min-w-[155px] bg-[#fdfcfb] text-xs font-semibold rounded-xl border-[#d9d0c8]"
                   />
 
                   <AppSelect
@@ -654,32 +654,34 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                     value={statusFilter}
                     onValueChange={(val) => setStatusFilter(val as typeof statusFilter)}
                     aria-label="Lọc theo trạng thái"
-                    triggerClassName="h-9 min-w-[135px] sm:min-w-[145px] bg-[#fdfcfb] text-xs font-semibold rounded-xl border-[#d9d0c8]"
+                    triggerClassName="h-9 w-full sm:w-auto sm:min-w-[140px] bg-[#fdfcfb] text-xs font-semibold rounded-xl border-[#d9d0c8]"
                   />
 
-                  <AppSelect
-                    size="sm"
-                    items={[
-                      { value: 'name-asc', label: 'Sắp xếp: Tên A–Z' },
-                      { value: 'name-desc', label: 'Sắp xếp: Tên Z–A' },
-                      { value: 'price-asc', label: 'Giá: Thấp → Cao' },
-                      { value: 'price-desc', label: 'Giá: Cao → Thấp' },
-                    ]}
-                    value={sortBy}
-                    onValueChange={(val) => setSortBy(val as typeof sortBy)}
-                    aria-label="Sắp xếp sản phẩm"
-                    triggerClassName="h-9 min-w-[145px] sm:min-w-[155px] bg-[#fdfcfb] text-xs font-semibold rounded-xl border-[#d9d0c8]"
-                  />
-
-                  {hasFilterActive && (
-                    <SecondaryButton
+                  <div className="col-span-2 sm:col-span-1 flex items-center gap-2 w-full sm:w-auto">
+                    <AppSelect
                       size="sm"
-                      onClick={() => { setSearch(''); setCategoryFilter('all'); setStatusFilter('all'); setSortBy('name-asc') }}
-                      className="h-9 px-3 text-xs font-bold shrink-0 rounded-xl"
-                    >
-                      Đặt lại
-                    </SecondaryButton>
-                  )}
+                      items={[
+                        { value: 'name-asc', label: 'Sắp xếp: Tên A–Z' },
+                        { value: 'name-desc', label: 'Sắp xếp: Tên Z–A' },
+                        { value: 'price-asc', label: 'Giá: Thấp → Cao' },
+                        { value: 'price-desc', label: 'Giá: Cao → Thấp' },
+                      ]}
+                      value={sortBy}
+                      onValueChange={(val) => setSortBy(val as typeof sortBy)}
+                      aria-label="Sắp xếp sản phẩm"
+                      triggerClassName="h-9 flex-1 sm:flex-initial sm:min-w-[150px] bg-[#fdfcfb] text-xs font-semibold rounded-xl border-[#d9d0c8]"
+                    />
+
+                    {hasFilterActive && (
+                      <SecondaryButton
+                        size="sm"
+                        onClick={() => { setSearch(''); setCategoryFilter('all'); setStatusFilter('all'); setSortBy('name-asc') }}
+                        className="h-9 px-3 text-xs font-bold shrink-0 rounded-xl"
+                      >
+                        Đặt lại
+                      </SecondaryButton>
+                    )}
+                  </div>
 
                   <div className="hidden lg:flex items-center shrink-0">
                     <Popover.Root>
@@ -806,8 +808,27 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
               {/* Mobile Cards List */}
               <div className="md:hidden grid gap-2.5">
                 {!products.length && (
-                  <div className="p-6 text-center text-xs text-[#8c8177] rounded-xl border border-[#e5ddd6] bg-white">
-                    {hasFilterActive ? 'Không tìm thấy sản phẩm nào phù hợp.' : 'Chưa có sản phẩm nào.'}
+                  <div className="p-8 text-center text-xs text-[#8c8177] rounded-xl border border-[#e5ddd6] bg-white flex flex-col items-center justify-center gap-2 shadow-2xs">
+                    <div className="size-12 rounded-full bg-[#f7f3ee] text-[#8c8177] flex items-center justify-center">
+                      <IconCoffee size={24} stroke={1.5} />
+                    </div>
+                    <strong className="text-sm text-[var(--char)] font-bold">
+                      {hasFilterActive ? 'Không tìm thấy sản phẩm nào' : 'Chưa có sản phẩm nào'}
+                    </strong>
+                    <p className="text-xs text-[#8c8177] max-w-xs m-0">
+                      {hasFilterActive ? 'Thử thay đổi từ khóa tìm kiếm hoặc bộ lọc.' : 'Bắt đầu bằng cách thêm món mới vào thực đơn của quán.'}
+                    </p>
+                    {!hasFilterActive && (
+                      <PrimaryButton
+                        size="sm"
+                        disabled={!canManage || !categories.length}
+                        onClick={() => openProduct()}
+                        className="mt-2 text-xs font-bold"
+                      >
+                        <IconPlus size={15} stroke={2} />
+                        <span>Thêm sản phẩm ngay</span>
+                      </PrimaryButton>
+                    )}
                   </div>
                 )}
                 {products.map((product) => {
@@ -1803,97 +1824,95 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                         </button>
                       </div>
 
-                      {/* Table */}
-                      <div className="product-mockup-table-wrap">
-                        <table className="product-mockup-table">
-                          <thead>
-                            <tr>
-                              <th style={{ width: '22%' }}>TÊN KÍCH CỠ</th>
-                              <th style={{ width: '22%' }}>GIÁ BÁN</th>
-                              <th style={{ width: '38%' }}>NHÓM TÙY CHỌN / TOPPING</th>
-                              <th style={{ width: '10%' }} className="text-center">TRẠNG THÁI</th>
-                              <th style={{ width: '8%' }} className="text-center">THAO TÁC</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {productDraft.variants.map((variant, index) => (
-                              <tr key={variant.id ?? `variant-${index}`}>
-                                <td>
+                      {/* Mobile Card List */}
+                      <div className="space-y-2.5">
+                        {productDraft.variants.map((variant, index) => (
+                          <div
+                            key={variant.id ?? `variant-${index}`}
+                            className="p-3 rounded-xl border border-[#e5ddd6] bg-white shadow-2xs space-y-2.5"
+                          >
+                            <div className="grid grid-cols-2 gap-2.5">
+                              <div>
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-[#8c8177] block mb-1">
+                                  Tên kích cỡ <span className="text-[#b3381e]">*</span>
+                                </label>
+                                <Input
+                                  size="sm"
+                                  required
+                                  value={variant.name}
+                                  onChange={(e) => updateVariant(index, { name: e.target.value })}
+                                  placeholder="Tiêu chuẩn, Size L..."
+                                  className="w-full bg-[#fdfcfb]"
+                                />
+                              </div>
+                              <div>
+                                <label className="text-[10px] font-bold uppercase tracking-wider text-[#8c8177] block mb-1">
+                                  Giá bán <span className="text-[#b3381e]">*</span>
+                                </label>
+                                <div className="relative flex items-center">
                                   <Input
                                     size="sm"
                                     required
-                                    value={variant.name}
-                                    onChange={(e) => updateVariant(index, { name: e.target.value })}
-                                    placeholder="Tiêu chuẩn"
-                                    className="product-mockup-table-input"
+                                    min="0"
+                                    step="1000"
+                                    type="number"
+                                    value={variant.price || ''}
+                                    onChange={(e) => updateVariant(index, { price: Number(e.target.value) })}
+                                    placeholder="0"
+                                    className="w-full pr-6 font-data bg-[#fdfcfb]"
                                   />
-                                </td>
-                                <td>
-                                  <div className="relative flex items-center">
-                                    <Input
-                                      size="sm"
-                                      required
-                                      min="0"
-                                      step="1000"
-                                      type="number"
-                                      value={variant.price || ''}
-                                      onChange={(e) => updateVariant(index, { price: Number(e.target.value) })}
-                                      placeholder="Nhập giá bán"
-                                      className="product-mockup-table-input pr-6 font-data"
-                                    />
-                                    <span className="absolute right-2.5 text-xs text-[var(--stone)] pointer-events-none">₫</span>
-                                  </div>
-                                </td>
-                                <td>
-                                  <ModifierGroupPicker
-                                    groups={catalog.data?.modifierGroups ?? []}
-                                    selectedIds={variant.modifierGroupIds ?? []}
-                                    onChange={(ids) => updateVariant(index, { modifierGroupIds: ids })}
-                                  />
-                                </td>
-                                <td>
-                                  <div className="flex items-center justify-center">
-                                    <Switch
-                                      checked={variant.active}
-                                      onCheckedChange={(checked) => updateVariant(index, { active: checked === true })}
-                                      aria-label="Trạng thái kích cỡ"
-                                    />
-                                  </div>
-                                </td>
-                                <td>
-                                  <div className="flex items-center justify-center">
-                                    <button
-                                      type="button"
-                                      disabled={productDraft.variants.length <= 1}
-                                      onClick={() => setProductDraft({ ...productDraft, variants: productDraft.variants.filter((_, vIndex) => vIndex !== index) })}
-                                      className="product-mockup-trash-btn"
-                                      title="Xóa kích cỡ này"
-                                      aria-label="Xóa kích cỡ"
-                                    >
-                                      {TrashIcon}
-                                    </button>
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
+                                  <span className="absolute right-2 text-xs text-[#8c8177] pointer-events-none font-bold">₫</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-[#8c8177] block mb-1">
+                                Nhóm tùy chọn / Topping
+                              </label>
+                              <ModifierGroupPicker
+                                groups={catalog.data?.modifierGroups ?? []}
+                                selectedIds={variant.modifierGroupIds ?? []}
+                                onChange={(ids) => updateVariant(index, { modifierGroupIds: ids })}
+                              />
+                            </div>
+
+                            <div className="flex items-center justify-between pt-2 border-t border-[#f5ede4]">
+                              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-[#554a40] select-none">
+                                <Switch
+                                  checked={variant.active}
+                                  onCheckedChange={(checked) => updateVariant(index, { active: checked === true })}
+                                  aria-label="Trạng thái kích cỡ"
+                                />
+                                <span className="text-[11px] font-medium">{variant.active ? 'Đang bán' : 'Tạm dừng'}</span>
+                              </label>
+
+                              <button
+                                type="button"
+                                disabled={productDraft.variants.length <= 1}
+                                onClick={() => setProductDraft({ ...productDraft, variants: productDraft.variants.filter((_, vIndex) => vIndex !== index) })}
+                                className="size-8 rounded-lg border border-[#ded6cc] bg-white text-[#8c8177] hover:text-red-600 hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                                title="Xóa kích cỡ này"
+                                aria-label="Xóa kích cỡ"
+                              >
+                                <IconTrash size={15} stroke={1.75} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
                     {/* Sticky Footer */}
-                    <div className="product-mockup-footer">
-                      <span className="product-mockup-count">
-                        {productDraft.variants.length} kích cỡ đã tạo
-                      </span>
-                      <div className="flex items-center gap-3">
-                        <Drawer.Close className="product-mockup-cancel-btn">
+                    <div className="product-mockup-footer pt-3">
+                      <div className="flex items-center gap-2.5 w-full">
+                        <Drawer.Close className="product-mockup-cancel-btn flex-1">
                           Hủy
                         </Drawer.Close>
                         <button
                           type="submit"
                           disabled={save.isPending}
-                          className="product-mockup-save-btn"
+                          className="product-mockup-save-btn flex-1"
                         >
                           {save.isPending ? 'Đang lưu…' : 'Lưu sản phẩm'}
                         </button>
@@ -2212,102 +2231,98 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                       </button>
                     </div>
 
-                    <div className="product-mockup-table-wrap">
-                      <table className="product-mockup-table">
-                        <thead>
-                          <tr>
-                            <th style={{ width: '46%' }}>TÊN LỰA CHỌN</th>
-                            <th style={{ width: '28%' }}>GIÁ THÊM</th>
-                            <th style={{ width: '16%' }} className="text-center">BÁN</th>
-                            <th style={{ width: '10%' }} className="text-center">XÓA</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {modifierDraft.modifiers.map((modifier, index) => (
-                            <tr key={modifier.id ?? `modifier-${index}`}>
-                              <td>
+                    <div className="space-y-2.5">
+                      {modifierDraft.modifiers.map((modifier, index) => (
+                        <div
+                          key={modifier.id ?? `modifier-${index}`}
+                          className="p-3 rounded-xl border border-[#e5ddd6] bg-white shadow-2xs space-y-2.5"
+                        >
+                          <div>
+                            <label className="text-[10.5px] font-bold uppercase tracking-wider text-[#8c8177] block mb-1">
+                              Tên lựa chọn <span className="text-[#b3381e]">*</span>
+                            </label>
+                            <Input
+                              size="sm"
+                              required
+                              value={modifier.name}
+                              onChange={(event) => setModifierDraft({
+                                ...modifierDraft,
+                                modifiers: modifierDraft.modifiers.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item)
+                              })}
+                              placeholder="VD: 50% đường, Trân châu đen..."
+                              className="w-full bg-[#fdfcfb]"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between gap-3 pt-1 border-t border-[#f5ede4]">
+                            <div className="flex-1 min-w-0">
+                              <label className="text-[10px] font-bold uppercase tracking-wider text-[#8c8177] block mb-1">
+                                Giá thêm
+                              </label>
+                              <div className="relative flex items-center">
                                 <Input
                                   size="sm"
                                   required
-                                  value={modifier.name}
+                                  min="0"
+                                  step="1000"
+                                  type="number"
+                                  value={modifier.priceDelta || ''}
                                   onChange={(event) => setModifierDraft({
                                     ...modifierDraft,
-                                    modifiers: modifierDraft.modifiers.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item)
+                                    modifiers: modifierDraft.modifiers.map((item, itemIndex) => itemIndex === index ? { ...item, priceDelta: Number(event.target.value) } : item)
                                   })}
-                                  placeholder="VD: 50% đường, Trân châu..."
-                                  className="product-mockup-table-input"
+                                  placeholder="0"
+                                  className="w-full pr-6 font-data bg-[#fdfcfb]"
                                 />
-                              </td>
-                              <td>
-                                <div className="relative flex items-center">
-                                  <Input
-                                    size="sm"
-                                    required
-                                    min="0"
-                                    step="1000"
-                                    type="number"
-                                    value={modifier.priceDelta || ''}
-                                    onChange={(event) => setModifierDraft({
-                                      ...modifierDraft,
-                                      modifiers: modifierDraft.modifiers.map((item, itemIndex) => itemIndex === index ? { ...item, priceDelta: Number(event.target.value) } : item)
-                                    })}
-                                    placeholder="0"
-                                    className="product-mockup-table-input pr-6 font-data"
-                                  />
-                                  <span className="absolute right-2 text-xs text-[var(--stone)] pointer-events-none">₫</span>
-                                </div>
-                              </td>
-                              <td>
-                                <div className="flex items-center justify-center">
-                                  <Switch
-                                    checked={modifier.active}
-                                    onCheckedChange={(checked) => setModifierDraft({
-                                      ...modifierDraft,
-                                      modifiers: modifierDraft.modifiers.map((item, itemIndex) => itemIndex === index ? { ...item, active: checked === true } : item)
-                                    })}
-                                    aria-label="Trạng thái tùy chọn"
-                                  />
-                                </div>
-                              </td>
-                              <td>
-                                <div className="flex items-center justify-center">
-                                  <button
-                                    type="button"
-                                    disabled={modifierDraft.modifiers.length <= 1}
-                                    onClick={() => setModifierDraft({
-                                      ...modifierDraft,
-                                      modifiers: modifierDraft.modifiers.filter((_, itemIndex) => itemIndex !== index)
-                                    })}
-                                    className="product-mockup-trash-btn"
-                                    title="Xóa lựa chọn này"
-                                    aria-label="Xóa lựa chọn"
-                                  >
-                                    {TrashIcon}
-                                  </button>
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                                <span className="absolute right-2 text-xs text-[#8c8177] pointer-events-none font-bold">₫</span>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 shrink-0 pt-3">
+                              <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-[#554a40] select-none">
+                                <Switch
+                                  checked={modifier.active}
+                                  onCheckedChange={(checked) => setModifierDraft({
+                                    ...modifierDraft,
+                                    modifiers: modifierDraft.modifiers.map((item, itemIndex) => itemIndex === index ? { ...item, active: checked === true } : item)
+                                  })}
+                                  aria-label="Trạng thái tùy chọn"
+                                />
+                                <span className="text-[11px] font-medium">{modifier.active ? 'Bán' : 'Tắt'}</span>
+                              </label>
+
+                              <button
+                                type="button"
+                                disabled={modifierDraft.modifiers.length <= 1}
+                                onClick={() => setModifierDraft({
+                                  ...modifierDraft,
+                                  modifiers: modifierDraft.modifiers.filter((_, itemIndex) => itemIndex !== index)
+                                })}
+                                className="size-8 rounded-lg border border-[#ded6cc] bg-white text-[#8c8177] hover:text-red-600 hover:border-red-200 hover:bg-red-50 flex items-center justify-center transition-colors disabled:opacity-30 disabled:pointer-events-none cursor-pointer"
+                                title="Xóa lựa chọn này"
+                                aria-label="Xóa lựa chọn"
+                              >
+                                <IconTrash size={15} stroke={1.75} />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
                   {save.isError && <p className="form-message mt-3">{save.error.message}</p>}
 
                   {/* Sticky Footer */}
-                  <div className="product-mockup-footer">
-                    <span className="product-mockup-count">
-                      {modifierDraft.modifiers.length} lựa chọn trong nhóm
-                    </span>
-                    <div className="flex items-center gap-3">
-                      <Drawer.Close className="product-mockup-cancel-btn">
+                  <div className="product-mockup-footer pt-3">
+                    <div className="flex items-center gap-2.5 w-full">
+                      <Drawer.Close className="product-mockup-cancel-btn flex-1">
                         Hủy
                       </Drawer.Close>
                       <button
                         type="submit"
                         disabled={save.isPending}
-                        className="product-mockup-save-btn"
+                        className="product-mockup-save-btn flex-1"
                       >
                         {save.isPending ? 'Đang lưu…' : 'Lưu nhóm'}
                       </button>
