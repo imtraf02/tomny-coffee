@@ -1,5 +1,6 @@
 import {
   IconPlus,
+  IconMinus,
   IconSearch,
   IconX,
   IconInfoCircle,
@@ -1765,9 +1766,9 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
         isMobile ? (
           <Drawer.Root open={productDialog} onOpenChange={(open) => { if (!open) setProductDialog(false) }}>
             <Drawer.Content direction="bottom" className="w-full max-h-[92dvh] p-0">
-              <Drawer.Header className="px-5 pt-3 pb-3 border-b border-[#ede6de]">
+              <Drawer.Header className="px-4 py-2.5 border-b border-[#ede6de] text-left">
                 <div>
-                  <Drawer.Title className="text-xl font-bold font-display text-[var(--char)]">
+                  <Drawer.Title className="text-lg font-bold font-display text-[var(--char)]">
                     {productDraft?.id ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới'}
                   </Drawer.Title>
                   <Drawer.Description className="text-xs text-[#8c8177] mt-0.5">
@@ -1775,14 +1776,14 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                   </Drawer.Description>
                 </div>
               </Drawer.Header>
-              <Drawer.Body className="px-3 sm:px-5 py-3">
+              <Drawer.Body className="px-3.5 py-3">
                 {productDraft && (
                   <form
                     onSubmit={(event) => {
                       event.preventDefault()
                       save.mutate({ action: 'saveProduct', product: productDraft })
                     }}
-                    className="product-mockup-form"
+                    className="flex flex-col gap-4"
                   >
                     {/* Section 1: Thông tin cơ bản */}
                     <div className="product-mockup-section">
@@ -2199,9 +2200,9 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
         isMobile ? (
           <Drawer.Root open={modifierDialog} onOpenChange={(open) => { if (!open) setModifierDialog(false) }}>
             <Drawer.Content direction="bottom" className="w-full max-h-[90dvh] p-0">
-              <Drawer.Header className="px-5 pt-3 pb-3 border-b border-[#ede6de]">
+              <Drawer.Header className="px-4 py-2.5 border-b border-[#ede6de] text-left">
                 <div>
-                  <Drawer.Title className="text-xl font-bold font-display text-[var(--char)]">
+                  <Drawer.Title className="text-lg font-bold font-display text-[var(--char)]">
                     {modifierDraft.id ? 'Sửa nhóm tùy chọn' : 'Thêm nhóm tùy chọn'}
                   </Drawer.Title>
                   <Drawer.Description className="text-xs text-[#8c8177] mt-0.5">
@@ -2209,15 +2210,15 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                   </Drawer.Description>
                 </div>
               </Drawer.Header>
-              <Drawer.Body className="px-4 py-3">
+              <Drawer.Body className="px-3.5 py-3">
                 <form
                   onSubmit={(event) => {
                     event.preventDefault()
                     save.mutate({ action: 'saveModifierGroup', group: modifierDraft })
                   }}
-                  className="product-mockup-form"
+                  className="flex flex-col gap-3"
                 >
-                  <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-3">
                     {/* Field 1: Tên nhóm */}
                     <div className="product-mockup-field">
                       <label className="product-mockup-label">
@@ -2236,32 +2237,62 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                     {/* Field 2: Cho phép khách chọn */}
                     <div className="product-mockup-field">
                       <label className="product-mockup-label">CHO PHÉP KHÁCH CHỌN</label>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-2.5">
                         <div>
-                          <span className="text-xs text-[#8c8177] block mb-1">Tối thiểu (Min)</span>
-                          <Input
-                            size="sm"
-                            min="0"
-                            type="number"
-                            value={modifierDraft.minSelections}
-                            onChange={(event) => setModifierDraft({ ...modifierDraft, minSelections: Number(event.target.value) })}
-                            className="product-mockup-input font-data text-center"
-                          />
+                          <span className="text-[11px] font-semibold text-[#8c8177] block mb-1">Tối thiểu (Min)</span>
+                          <div className="flex items-center justify-between p-1 rounded-xl border border-[#d9d0c8] bg-[#fdfcfb]">
+                            <button
+                              type="button"
+                              disabled={modifierDraft.minSelections <= 0}
+                              onClick={() => setModifierDraft({ ...modifierDraft, minSelections: Math.max(0, modifierDraft.minSelections - 1) })}
+                              className="size-8 rounded-lg bg-white border border-[#ded6cc] text-[var(--char)] hover:bg-[#f5ede4] hover:text-[var(--ember)] hover:border-[var(--ember)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-bold transition-all cursor-pointer select-none shadow-2xs"
+                              aria-label="Giảm tối thiểu"
+                            >
+                              <IconMinus size={13} stroke={2.5} />
+                            </button>
+                            <span className="font-mono font-bold text-sm text-[var(--char)] tabular-nums px-2">
+                              {modifierDraft.minSelections}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={modifierDraft.minSelections >= modifierDraft.maxSelections}
+                              onClick={() => setModifierDraft({ ...modifierDraft, minSelections: modifierDraft.minSelections + 1 })}
+                              className="size-8 rounded-lg bg-white border border-[#ded6cc] text-[var(--char)] hover:bg-[#f5ede4] hover:text-[var(--ember)] hover:border-[var(--ember)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-bold transition-all cursor-pointer select-none shadow-2xs"
+                              aria-label="Tăng tối thiểu"
+                            >
+                              <IconPlus size={13} stroke={2.5} />
+                            </button>
+                          </div>
                         </div>
                         <div>
-                          <span className="text-xs text-[#8c8177] block mb-1">Tối đa (Max)</span>
-                          <Input
-                            size="sm"
-                            min="1"
-                            type="number"
-                            value={modifierDraft.maxSelections}
-                            onChange={(event) => setModifierDraft({ ...modifierDraft, maxSelections: Number(event.target.value) })}
-                            className="product-mockup-input font-data text-center"
-                          />
+                          <span className="text-[11px] font-semibold text-[#8c8177] block mb-1">Tối đa (Max)</span>
+                          <div className="flex items-center justify-between p-1 rounded-xl border border-[#d9d0c8] bg-[#fdfcfb]">
+                            <button
+                              type="button"
+                              disabled={modifierDraft.maxSelections <= Math.max(1, modifierDraft.minSelections)}
+                              onClick={() => setModifierDraft({ ...modifierDraft, maxSelections: Math.max(1, modifierDraft.maxSelections - 1) })}
+                              className="size-8 rounded-lg bg-white border border-[#ded6cc] text-[var(--char)] hover:bg-[#f5ede4] hover:text-[var(--ember)] hover:border-[var(--ember)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-bold transition-all cursor-pointer select-none shadow-2xs"
+                              aria-label="Giảm tối đa"
+                            >
+                              <IconMinus size={13} stroke={2.5} />
+                            </button>
+                            <span className="font-mono font-bold text-sm text-[var(--char)] tabular-nums px-2">
+                              {modifierDraft.maxSelections}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={modifierDraft.maxSelections >= 99}
+                              onClick={() => setModifierDraft({ ...modifierDraft, maxSelections: modifierDraft.maxSelections + 1 })}
+                              className="size-8 rounded-lg bg-white border border-[#ded6cc] text-[var(--char)] hover:bg-[#f5ede4] hover:text-[var(--ember)] hover:border-[var(--ember)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-bold transition-all cursor-pointer select-none shadow-2xs"
+                              aria-label="Tăng tối đa"
+                            >
+                              <IconPlus size={13} stroke={2.5} />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <small className="text-[11px] text-[#8c8177] mt-1.5 block">
-                        0 = Không bắt buộc (khách có thể bỏ qua) · 1 = Bắt buộc chọn đúng 1 lựa chọn
+                      <small className="text-[10.5px] text-[#8c8177] mt-1.5 block">
+                        0 = Không bắt buộc · 1 = Bắt buộc chọn 1 lựa chọn
                       </small>
                     </div>
                   </div>
@@ -2441,25 +2472,55 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                         <div className="grid grid-cols-2 gap-3">
                           <div>
                             <span className="text-xs text-[#8c8177] block mb-1">Tối thiểu (Min)</span>
-                            <Input
-                              size="sm"
-                              min="0"
-                              type="number"
-                              value={modifierDraft.minSelections}
-                              onChange={(event) => setModifierDraft({ ...modifierDraft, minSelections: Number(event.target.value) })}
-                              className="product-mockup-input font-data text-center"
-                            />
+                            <div className="flex items-center justify-between p-1 rounded-xl border border-[#d9d0c8] bg-[#fdfcfb]">
+                              <button
+                                type="button"
+                                disabled={modifierDraft.minSelections <= 0}
+                                onClick={() => setModifierDraft({ ...modifierDraft, minSelections: Math.max(0, modifierDraft.minSelections - 1) })}
+                                className="size-8 rounded-lg bg-white border border-[#ded6cc] text-[var(--char)] hover:bg-[#f5ede4] hover:text-[var(--ember)] hover:border-[var(--ember)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-bold transition-all cursor-pointer select-none shadow-2xs"
+                                aria-label="Giảm tối thiểu"
+                              >
+                                <IconMinus size={13} stroke={2.5} />
+                              </button>
+                              <span className="font-mono font-bold text-sm text-[var(--char)] tabular-nums px-2">
+                                {modifierDraft.minSelections}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={modifierDraft.minSelections >= modifierDraft.maxSelections}
+                                onClick={() => setModifierDraft({ ...modifierDraft, minSelections: modifierDraft.minSelections + 1 })}
+                                className="size-8 rounded-lg bg-white border border-[#ded6cc] text-[var(--char)] hover:bg-[#f5ede4] hover:text-[var(--ember)] hover:border-[var(--ember)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-bold transition-all cursor-pointer select-none shadow-2xs"
+                                aria-label="Tăng tối thiểu"
+                              >
+                                <IconPlus size={13} stroke={2.5} />
+                              </button>
+                            </div>
                           </div>
                           <div>
                             <span className="text-xs text-[#8c8177] block mb-1">Tối đa (Max)</span>
-                            <Input
-                              size="sm"
-                              min="1"
-                              type="number"
-                              value={modifierDraft.maxSelections}
-                              onChange={(event) => setModifierDraft({ ...modifierDraft, maxSelections: Number(event.target.value) })}
-                              className="product-mockup-input font-data text-center"
-                            />
+                            <div className="flex items-center justify-between p-1 rounded-xl border border-[#d9d0c8] bg-[#fdfcfb]">
+                              <button
+                                type="button"
+                                disabled={modifierDraft.maxSelections <= Math.max(1, modifierDraft.minSelections)}
+                                onClick={() => setModifierDraft({ ...modifierDraft, maxSelections: Math.max(1, modifierDraft.maxSelections - 1) })}
+                                className="size-8 rounded-lg bg-white border border-[#ded6cc] text-[var(--char)] hover:bg-[#f5ede4] hover:text-[var(--ember)] hover:border-[var(--ember)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-bold transition-all cursor-pointer select-none shadow-2xs"
+                                aria-label="Giảm tối đa"
+                              >
+                                <IconMinus size={13} stroke={2.5} />
+                              </button>
+                              <span className="font-mono font-bold text-sm text-[var(--char)] tabular-nums px-2">
+                                {modifierDraft.maxSelections}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={modifierDraft.maxSelections >= 99}
+                                onClick={() => setModifierDraft({ ...modifierDraft, maxSelections: modifierDraft.maxSelections + 1 })}
+                                className="size-8 rounded-lg bg-white border border-[#ded6cc] text-[var(--char)] hover:bg-[#f5ede4] hover:text-[var(--ember)] hover:border-[var(--ember)] disabled:opacity-30 disabled:pointer-events-none flex items-center justify-center font-bold transition-all cursor-pointer select-none shadow-2xs"
+                                aria-label="Tăng tối đa"
+                              >
+                                <IconPlus size={13} stroke={2.5} />
+                              </button>
+                            </div>
                           </div>
                         </div>
                         <small className="text-[11px] text-[#8c8177] mt-1.5 block">
