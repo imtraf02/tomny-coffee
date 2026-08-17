@@ -190,8 +190,10 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
     return filtered.sort((a, b) => {
       if (sortBy === 'name-asc') return a.name.localeCompare(b.name, 'vi-VN')
       if (sortBy === 'name-desc') return b.name.localeCompare(a.name, 'vi-VN')
-      const minPriceA = Math.min(...a.variants.map((v) => v.price), 0)
-      const minPriceB = Math.min(...b.variants.map((v) => v.price), 0)
+      const pricesA = a.variants.map((v) => v.price)
+      const minPriceA = pricesA.length > 0 ? Math.min(...pricesA) : 0
+      const pricesB = b.variants.map((v) => v.price)
+      const minPriceB = pricesB.length > 0 ? Math.min(...pricesB) : 0
       if (sortBy === 'price-asc') return minPriceA - minPriceB
       if (sortBy === 'price-desc') return minPriceB - minPriceA
       return 0
@@ -897,9 +899,10 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                   </div>
                 )}
                 {products.map((product) => {
-                  const minPrice = Math.min(...product.variants.map((v) => v.price), 0)
-                  const maxPrice = Math.max(...product.variants.map((v) => v.price), 0)
-                  const isMultiPrice = minPrice !== maxPrice
+                  const prices = product.variants.map((v) => v.price)
+                  const minPrice = prices.length > 0 ? Math.min(...prices) : 0
+                  const maxPrice = prices.length > 0 ? Math.max(...prices) : 0
+                  const isMultiPrice = prices.length > 1 && minPrice !== maxPrice
 
                   return (
                     <div
@@ -1303,80 +1306,88 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
         <Drawer.Content direction={isMobile ? 'bottom' : 'right'} className={cn(isMobile ? 'w-full max-h-[92dvh] p-0' : 'w-full max-w-[440px] p-0 flex flex-col')}>
           {selectedProduct && (() => {
             const categoryName = categories.find((c) => c.id === selectedProduct.categoryId)?.name ?? 'Chưa phân loại'
-            const minPrice = Math.min(...selectedProduct.variants.map((v) => v.price), 0)
-            const maxPrice = Math.max(...selectedProduct.variants.map((v) => v.price), 0)
-            const isMultiPrice = minPrice !== maxPrice
+            const prices = selectedProduct.variants.map((v) => v.price)
+            const minPrice = prices.length > 0 ? Math.min(...prices) : 0
+            const maxPrice = prices.length > 0 ? Math.max(...prices) : 0
+            const isMultiPrice = prices.length > 1 && minPrice !== maxPrice
 
             return (
               <>
-                <Drawer.Header className="px-5 pt-4 pb-3 border-b border-[#ede6de] flex items-start justify-between gap-3 text-left">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-[#f0ebe4] text-[#61574f] border border-[#ded6cc]">
-                        {categoryName}
-                      </span>
-                      <span
-                        className={cn(
-                          'px-2 py-0.5 rounded-full text-[10px] font-bold border',
-                          selectedProduct.active
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
-                            : 'bg-[#f0ebe4] text-[#716559] border-[#ded6cc]'
-                        )}
-                      >
-                        {selectedProduct.active ? 'Đang bán' : 'Ngừng bán'}
-                      </span>
+                <Drawer.Header className="px-4 py-3 border-b border-[#ede6de] text-left">
+                  <div className="flex items-center justify-between gap-3 w-full">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                        <span className="px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider bg-[#f0ebe4] text-[#61574f] border border-[#ded6cc]">
+                          {categoryName}
+                        </span>
+                        <span
+                          className={cn(
+                            'px-2 py-0.5 rounded-md text-[10px] font-bold border',
+                            selectedProduct.active
+                              ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              : 'bg-[#f0ebe4] text-[#716559] border-[#ded6cc]'
+                          )}
+                        >
+                          {selectedProduct.active ? 'Đang bán' : 'Ngừng bán'}
+                        </span>
+                      </div>
+                      <Drawer.Title className="text-lg font-bold font-display text-[var(--char)] m-0 truncate">
+                        {selectedProduct.name}
+                      </Drawer.Title>
                     </div>
-                    <Drawer.Title className="text-xl font-bold font-display text-[var(--char)] m-0 truncate">
-                      {selectedProduct.name}
-                    </Drawer.Title>
+                    <Drawer.Close
+                      aria-label="Đóng"
+                      className="size-8 rounded-lg border border-[#ded6cc] bg-white text-[#716559] hover:text-[var(--char)] flex items-center justify-center shrink-0 cursor-pointer shadow-2xs hover:bg-[#faf7f3] transition-all"
+                    >
+                      <IconX size={17} stroke={2} />
+                    </Drawer.Close>
                   </div>
-                  <Drawer.Close
-                    aria-label="Đóng"
-                    className="size-8 rounded-lg border border-[#ded6cc] bg-white text-[#716559] hover:text-[var(--char)] flex items-center justify-center shrink-0 cursor-pointer shadow-2xs hover:bg-[#faf7f3] transition-all"
-                  >
-                    <IconX size={17} stroke={2} />
-                  </Drawer.Close>
                 </Drawer.Header>
 
-                <Drawer.Body className="px-5 py-4 overflow-y-auto space-y-4 flex-1">
+                <Drawer.Body className="px-4 py-3.5 overflow-y-auto space-y-3.5 flex-1">
                   {/* Image & Description */}
-                  <div className="rounded-xl border border-[#ede6de] bg-[#fbf9f6] p-3 flex flex-col gap-3">
-                    {selectedProduct.imageKey ? (
-                      <div className="aspect-video w-full rounded-lg overflow-hidden border border-[#ede6de] bg-white">
+                  {selectedProduct.imageKey ? (
+                    <div className="rounded-xl border border-[#ede6de] bg-white overflow-hidden shadow-2xs">
+                      <div className="aspect-[16/9] w-full bg-[#fbf9f6] relative">
                         <img
                           src={`/api/media/menu-images?key=${encodeURIComponent(selectedProduct.imageKey)}`}
                           alt=""
                           className="w-full h-full object-cover"
                         />
                       </div>
-                    ) : (
-                      <div className="aspect-video w-full rounded-lg bg-[#f3ece3] border border-dashed border-[#d9d0c8] flex flex-col items-center justify-center gap-1.5 text-[#8c8177]">
-                        <IconCoffee size={32} stroke={1.5} className="text-[var(--ember)] opacity-60" />
-                        <span className="text-xs font-semibold">Chưa có ảnh món</span>
+                      {selectedProduct.description && (
+                        <div className="p-3 text-xs text-[#5c5248] italic border-t border-[#ede6de] bg-[#fdfcfb]">
+                          "{selectedProduct.description}"
+                        </div>
+                      )}
+                    </div>
+                  ) : selectedProduct.description ? (
+                    <div className="rounded-xl border border-[#ede6de] bg-white p-3 shadow-2xs flex items-center gap-3">
+                      <div className="size-10 rounded-lg bg-[#f5ede4] text-[var(--ember)] border border-[#ede5dc] flex items-center justify-center shrink-0">
+                        <IconCoffee size={20} stroke={1.5} />
                       </div>
-                    )}
-                    {selectedProduct.description ? (
-                      <p className="text-xs text-[#5c5248] italic leading-relaxed m-0 border-t border-[#ede6de] pt-2">
-                        "{selectedProduct.description}"
-                      </p>
-                    ) : (
-                      <p className="text-xs text-[#a0958a] italic m-0 border-t border-[#ede6de] pt-2">
-                        Chưa có mô tả cho sản phẩm này.
-                      </p>
-                    )}
-                  </div>
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10.5px] font-bold uppercase tracking-wider text-[#8c8177] block">Mô tả</span>
+                        <p className="text-xs text-[var(--char)] italic m-0 line-clamp-2 mt-0.5">
+                          "{selectedProduct.description}"
+                        </p>
+                      </div>
+                    </div>
+                  ) : null}
 
                   {/* Quick stats */}
                   <div className="grid grid-cols-2 gap-2.5">
                     <div className="p-3 rounded-xl border border-[#e5ddd6] bg-white shadow-2xs">
-                      <span className="text-[10.5px] uppercase font-bold text-[#8c8177] tracking-wider block">Phân loại / Size</span>
-                      <strong className="text-sm font-bold text-[var(--char)] mt-0.5 block">
+                      <span className="text-[10px] uppercase font-bold text-[#8c8177] tracking-wider block">Phân loại / Size</span>
+                      <strong className="text-sm font-bold text-[var(--char)] mt-1 block">
                         {selectedProduct.variants.length} kích cỡ
                       </strong>
                     </div>
                     <div className="p-3 rounded-xl border border-[#e5ddd6] bg-white shadow-2xs">
-                      <span className="text-[10.5px] uppercase font-bold text-[#8c8177] tracking-wider block">Khoảng giá bán</span>
-                      <strong className="font-mono text-sm font-bold text-[var(--ember)] mt-0.5 block tabular-nums">
+                      <span className="text-[10px] uppercase font-bold text-[#8c8177] tracking-wider block">
+                        {isMultiPrice ? 'Khoảng giá bán' : 'Giá bán'}
+                      </span>
+                      <strong className="font-mono text-sm font-bold text-[var(--ember)] mt-1 block tabular-nums">
                         {isMultiPrice ? `${formatMoney(minPrice)} - ${formatMoney(maxPrice)}` : formatMoney(minPrice)}
                       </strong>
                     </div>
@@ -1384,11 +1395,9 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
 
                   {/* Variants Section */}
                   <div>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#63574c] m-0">
-                        Kích cỡ & Giá bán ({selectedProduct.variants.length})
-                      </h4>
-                    </div>
+                    <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#7a6d60] mb-2">
+                      Kích cỡ & Giá bán ({selectedProduct.variants.length})
+                    </h4>
                     <div className="space-y-2">
                       {selectedProduct.variants.map((variant) => {
                         const linkedGroups = (catalog.data?.modifierGroups ?? []).filter((g) =>
@@ -1418,7 +1427,7 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                             </div>
 
                             {linkedGroups.length > 0 && (
-                              <div className="flex items-center gap-1.5 flex-wrap pt-1.5 border-t border-[#f0ebe4]">
+                              <div className="flex items-center gap-1.5 flex-wrap pt-2 border-t border-[#f0ebe4]">
                                 <span className="text-[10px] text-[#8c8177] font-semibold">Topping:</span>
                                 {linkedGroups.map((g) => (
                                   <span
@@ -1436,19 +1445,10 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                     </div>
                   </div>
 
-                  {/* Price History Section */}
-                  <div>
-                    <div className="flex items-center justify-between gap-2 mb-2">
-                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#63574c] m-0">Lịch sử giá</h4>
-                    </div>
-                    {priceHistory.isLoading && <SkeletonList rows={3} label="Đang tải lịch sử giá…" itemClassName="p-3" />}
-                    {priceHistory.isError && <p className="text-xs text-red-600">Không tải được lịch sử giá.</p>}
-                    {!priceHistory.isLoading && !priceHistory.isError && !priceHistory.data?.history.length && (
-                      <div className="p-3 rounded-xl border border-dashed border-[#ded6cc] bg-[#fbf9f6] text-center text-xs text-[#8c8177]">
-                        Chưa có thay đổi giá nào được ghi nhận.
-                      </div>
-                    )}
-                    {priceHistory.data?.history && priceHistory.data.history.length > 0 && (
+                  {/* Price History Section (if present) */}
+                  {priceHistory.data?.history && priceHistory.data.history.length > 0 && (
+                    <div>
+                      <h4 className="text-[11px] font-bold uppercase tracking-wider text-[#7a6d60] mb-2">Lịch sử giá</h4>
                       <div className="space-y-1.5">
                         {priceHistory.data.history.slice(0, 6).map((event) => (
                           <div
@@ -1473,14 +1473,14 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                           </div>
                         ))}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </Drawer.Body>
 
                 {/* Footer Action Buttons */}
-                <div className="p-4 border-t border-[#ede6de] bg-[#fffdfa] flex flex-col gap-2.5 shrink-0">
+                <div className="p-3.5 border-t border-[#ede6de] bg-white flex flex-col gap-2 shrink-0">
                   <PrimaryButton
-                    className="w-full flex items-center justify-center gap-2 h-10 font-bold"
+                    className="w-full flex items-center justify-center gap-2 h-10 font-bold text-sm shadow-xs"
                     disabled={!canManage}
                     onClick={() => {
                       setSelectedProduct(null)
@@ -1488,26 +1488,26 @@ export function CatalogManager({ canManage = true }: { canManage?: boolean }) {
                     }}
                   >
                     <IconPencil size={15} stroke={2} />
-                    <span>Sửa sản phẩm</span>
+                    <span>Chỉnh sửa sản phẩm</span>
                   </PrimaryButton>
 
                   {canManage && (
-                    <div className="flex items-center gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <SecondaryButton
                         size="sm"
-                        className="flex-1 text-xs font-bold h-8.5"
+                        className="text-xs font-bold h-9 rounded-xl"
                         onClick={() => setCatalogAction(selectedProduct.active ? 'stop' : null)}
                       >
                         {selectedProduct.active ? 'Ngừng bán' : 'Bật bán'}
                       </SecondaryButton>
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="text-xs text-[var(--ember)] hover:bg-red-50 hover:text-red-700 h-8.5 px-3 rounded-lg font-semibold"
+                        className="text-xs text-[var(--ember)] hover:bg-red-50 hover:text-red-700 hover:border-red-200 h-9 rounded-xl font-semibold flex items-center justify-center gap-1 border-[#ded6cc]"
                         onClick={() => setCatalogAction('delete')}
                       >
-                        <IconTrash size={14} stroke={1.75} className="mr-1" />
-                        <span>Xóa</span>
+                        <IconTrash size={14} stroke={1.75} />
+                        <span>Xóa món</span>
                       </Button>
                     </div>
                   )}
