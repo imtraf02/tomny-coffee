@@ -203,8 +203,9 @@ export async function captureElementToImage(
 
   const html2canvas = (await import('html2canvas-pro')).default
 
-  const width = el.offsetWidth || el.scrollWidth || 320
-  const height = el.offsetHeight || el.scrollHeight || 500
+  const rect = el.getBoundingClientRect()
+  const width = Math.max(Math.round(rect.width), 320)
+  const height = Math.max(el.scrollHeight, Math.round(rect.height))
 
   // Clone element for clean off-screen rasterization without modal scroll/transforms
   const clone = el.cloneNode(true) as HTMLElement
@@ -212,28 +213,37 @@ export async function captureElementToImage(
   clone.style.transformOrigin = 'top left'
   clone.style.margin = '0'
   clone.style.position = 'fixed'
-  clone.style.top = '-9999px'
-  clone.style.left = '-9999px'
+  clone.style.top = '0'
+  clone.style.left = '0'
   clone.style.width = `${width}px`
   clone.style.minWidth = `${width}px`
   clone.style.maxWidth = `${width}px`
   clone.style.height = 'auto'
   clone.style.overflow = 'visible'
   clone.style.zIndex = '-9999'
+  clone.style.opacity = '0.01'
+  clone.style.pointerEvents = 'none'
   clone.style.boxShadow = 'none'
   clone.style.background = '#ffffff'
-  clone.style.color = '#000000'
+  clone.style.color = '#111827'
 
   document.body.appendChild(clone)
 
   // Ensure fonts and rendering are fully painted
+  if (typeof document !== 'undefined' && document.fonts && document.fonts.ready) {
+    try {
+      await document.fonts.ready
+    } catch {
+      // ignore font loading error
+    }
+  }
   await new Promise((r) => requestAnimationFrame(r))
   await new Promise((r) => requestAnimationFrame(r))
-  await new Promise((r) => setTimeout(r, 100))
+  await new Promise((r) => setTimeout(r, 120))
 
   try {
     const canvas = await html2canvas(clone, {
-      scale: options?.scale ?? 2.5,
+      scale: options?.scale ?? 3,
       useCORS: true,
       backgroundColor: '#ffffff',
       width,

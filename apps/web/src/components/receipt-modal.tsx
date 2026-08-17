@@ -193,8 +193,8 @@ export function ReceiptModal({
   }
 
   const actionButtons = (
-    <div className="flex flex-col gap-2.5 w-full">
-      <div className="text-xs font-bold uppercase tracking-wider text-[#8c8177] pb-1 border-b border-[#ded1c0]/60">
+    <div className="flex flex-col gap-2 w-full">
+      <div className="text-[11px] font-bold uppercase tracking-wider text-[#8c8177] pb-1 border-b border-[#ded1c0]/60">
         Tùy chọn hóa đơn
       </div>
 
@@ -202,42 +202,44 @@ export function ReceiptModal({
         variant="primary"
         size="md"
         onClick={handlePrint}
-        className="w-full flex items-center justify-center gap-2 font-bold shadow-sm"
+        className="w-full flex items-center justify-center gap-2 h-10 font-bold shadow-xs"
       >
         <IconPrinter size={18} stroke={2} />
         <span>In hóa đơn (80mm)</span>
       </Button>
 
-      <Button
-        variant="outline"
-        size="md"
-        onClick={handleSaveImage}
-        disabled={isCapturing}
-        className="w-full flex items-center justify-center gap-2 bg-white hover:bg-[#faf7f2] font-semibold"
-      >
-        {captureSuccess ? (
-          <>
-            <IconCheck size={18} stroke={2.5} className="text-[var(--moss)]" />
-            <span className="text-[var(--moss)] font-bold">Đã lưu ảnh!</span>
-          </>
-        ) : (
-          <>
-            <IconPhoto size={18} stroke={1.75} />
-            <span>{isCapturing ? 'Đang xuất…' : 'Lưu ảnh hóa đơn (PNG)'}</span>
-          </>
-        )}
-      </Button>
+      <div className="grid grid-cols-2 gap-2">
+        <Button
+          variant="outline"
+          size="md"
+          onClick={handleSaveImage}
+          disabled={isCapturing}
+          className="w-full flex items-center justify-center gap-1.5 h-9.5 text-xs bg-white hover:bg-[#faf7f2] font-semibold border-[#ded6cc]"
+        >
+          {captureSuccess ? (
+            <>
+              <IconCheck size={16} stroke={2.5} className="text-[var(--moss)]" />
+              <span className="text-[var(--moss)] font-bold">Đã lưu ảnh!</span>
+            </>
+          ) : (
+            <>
+              <IconPhoto size={16} stroke={1.75} />
+              <span>{isCapturing ? 'Đang xuất…' : 'Lưu ảnh (PNG)'}</span>
+            </>
+          )}
+        </Button>
 
-      <Button
-        variant="outline"
-        size="md"
-        onClick={handleExportPdf}
-        disabled={isExportingPdf}
-        className="w-full flex items-center justify-center gap-2 bg-white hover:bg-[#faf7f2]"
-      >
-        <IconDownload size={18} stroke={1.75} />
-        <span>{isExportingPdf ? 'Đang tạo PDF…' : 'Tải file PDF'}</span>
-      </Button>
+        <Button
+          variant="outline"
+          size="md"
+          onClick={handleExportPdf}
+          disabled={isExportingPdf}
+          className="w-full flex items-center justify-center gap-1.5 h-9.5 text-xs bg-white hover:bg-[#faf7f2] font-semibold border-[#ded6cc]"
+        >
+          <IconDownload size={16} stroke={1.75} />
+          <span>{isExportingPdf ? 'Đang tạo…' : 'Tải file PDF'}</span>
+        </Button>
+      </div>
 
       {customActions}
 
@@ -249,9 +251,9 @@ export function ReceiptModal({
             onOpenChange(false)
             onNewOrder()
           }}
-          className="w-full mt-2 font-bold"
+          className="w-full mt-1 h-10 font-bold"
         >
-          Tạo đơn mới
+          + Tạo đơn mới
         </Button>
       )}
     </div>
@@ -263,28 +265,28 @@ export function ReceiptModal({
       {isMobile ? (
         <Drawer.Root open={open} onOpenChange={onOpenChange}>
           <Drawer.Content direction="bottom" className="w-full max-h-[92dvh] p-0 flex flex-col">
-            <Drawer.Header className="px-5 pt-3 pb-3 shrink-0">
+            <Drawer.Header className="px-4 pt-2.5 pb-2 border-b border-[#ede6de] text-left shrink-0">
               {successBadge && (
-                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[var(--moss)] mb-0.5">
-                  <IconCheck size={16} stroke={3} />
+                <div className="flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider text-[var(--moss)] mb-0.5">
+                  <IconCheck size={14} stroke={3} />
                   <span>Thanh toán hoàn tất</span>
                 </div>
               )}
-              <Drawer.Title className="text-xl font-bold font-display text-[var(--char)]">
+              <Drawer.Title className="text-lg font-bold font-display text-[var(--char)] m-0">
                 {title}
               </Drawer.Title>
               {description && (
-                <Drawer.Description className="text-xs text-[#8c8177]">
+                <Drawer.Description className="text-xs text-[#8c8177] m-0 mt-0.5">
                   {description}
                 </Drawer.Description>
               )}
             </Drawer.Header>
-            <Drawer.Body className="px-4 pt-1 pb-6 overflow-y-auto flex flex-col items-center">
+            <Drawer.Body className="px-3.5 pt-3 pb-6 overflow-y-auto flex flex-col items-center gap-3">
               {/* Receipt Preview centered */}
-              <div className="w-[320px] max-w-full rounded-xl overflow-hidden border border-[#ded1c0] shadow-sm bg-white mb-4">
+              <div className="w-full max-w-[328px] rounded-2xl border border-[#ded1c0] shadow-sm bg-white p-1">
                 <ReceiptDocument order={order} id="tomny-receipt-document" />
               </div>
-              <div className="w-[320px] max-w-full">
+              <div className="w-full max-w-[328px]">
                 {actionButtons}
               </div>
             </Drawer.Body>
